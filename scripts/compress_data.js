@@ -1,23 +1,21 @@
 import fs from "fs";
 import pako from "pako";
 import { encode } from "@msgpack/msgpack";
+import path from "path";
 
-const inputDir = "./data"
+// Get input and output file paths from command line arguments
+const inputFilePath = process.argv[2];
+const outputFilePath = process.argv[3];
 
-//iterate over all *.json files in the data directory
-const inputFilePaths = fs.readdirSync(inputDir)
-  .filter((file) => file.endsWith(".json"))
-  .map((file) => `${inputDir}/${file}`);
-
-for (const inputFilePath of inputFilePaths) {
-  console.log(`Compressing ${inputFilePath}...`);
-  const data = JSON.parse(fs.readFileSync(inputFilePath, "utf8"));
-
-  const compressed = pako.gzip(encode(data));
-  const encoded = Buffer.from(compressed).toString("base64");
-
-  const baseName = inputFilePath.split('/').pop().split('.').shift();
-  const destFile = `./src/data/${baseName}.ts`
-
-  fs.writeFileSync(destFile, `export const compressed_data = "${encoded}";`);
+if (!inputFilePath || !outputFilePath) {
+  console.error("Please provide input and output file paths.");
+  process.exit(1);
 }
+
+console.log(`Compressing ${inputFilePath}...`);
+const data = JSON.parse(fs.readFileSync(inputFilePath, "utf8"));
+
+const compressed = pako.gzip(encode(data));
+const encoded = Buffer.from(compressed).toString("base64");
+
+fs.writeFileSync(outputFilePath, `export const compressed_data = "${encoded}";`);
