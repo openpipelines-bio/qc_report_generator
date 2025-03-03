@@ -16,6 +16,7 @@ import { Histogram } from "./components/histogram";
 import { FilterSettingsForm } from "./components/filter-settings-form";
 import { DataSummaryTable } from "./components/data-summary-table";
 import { BarPlot } from "./components/barplot";
+import { SampleFilterForm } from "./components/sample-filter-form";
 
 type QCCategory = {
   name: string;
@@ -141,6 +142,50 @@ const App: Component = () => {
     setData(await getData());
   });
 
+  // Add this after your data() signal definition
+  const filteredData = () => {
+    const rawData = data();
+    const samples = selectedSamples();
+    
+    if (!rawData || samples.length === 0) return rawData;
+    
+    // Create a deep copy to avoid modifying the original data
+    const filtered = _.cloneDeep(rawData);
+    
+    // Filter each data category
+    for (const key in filtered) {
+      const category = filtered[key as keyof RawData];
+      
+      // Find sample_id column index
+      const sampleIdCol = category.columns.find(col => col.name === "sample_id");
+      
+      if (sampleIdCol) {
+        const sampleCategories = sampleIdCol.categories || [];
+        
+        // Get indices of selected samples
+        const selectedIndices: number[] = [];
+        for (let i = 0; i < category.num_rows; i++) {
+          const sampleIndex = sampleIdCol.data[i] as number;
+          const sampleName = sampleCategories[sampleIndex];
+          if (samples.includes(sampleName)) {
+            selectedIndices.push(i);
+          }
+        }
+        
+        // Filter each column's data
+        category.columns = category.columns.map(col => ({
+          ...col,
+          data: selectedIndices.map(i => col.data[i])
+        }));
+        
+        // Update row count
+        category.num_rows = selectedIndices.length;
+      }
+    }
+    
+    return filtered;
+  };
+
   // initialise filtersettings
   type Settings = {
     [key in keyof RawData]: FilterSettings[];
@@ -169,10 +214,18 @@ const App: Component = () => {
     });
   }
 
+  // Somewhere in your App component
+  const [selectedSamples, setSelectedSamples] = createSignal<string[]>([]);
+
   // page layout
   return (
     <div class="container mx-a space-y-2">
       <H1>OpenPipelines Ingestion QC Report</H1>
+      <SampleFilterForm
+        sampleIds={data()?.sample_summary_stats.columns.find(c => c.name === "sample_id")?.categories || []}
+        selectedSamples={selectedSamples()}
+        onChange={setSelectedSamples}
+      />
       <For each={qcCategories}>
         {(category) => (
           <Show when={(settings[category.key] || []).length > 0}>
@@ -190,13 +243,13 @@ const App: Component = () => {
                           </Match>
                           <Match when={settings[category.key][i()].type === "bar"}>
                             <BarPlot
-                              data={data()![category.key]}
+                              data={filteredData()![category.key]}
                               filterSettings={settings[category.key][i()]}
                             />
                           </Match>
                           <Match when={settings[category.key][i()].type === "histogram"}>
                             <Histogram
-                              data={data()![category.key]}
+                              data={filteredData()![category.key]}
                               filterSettings={settings[category.key][i()]}
                               additionalAxes={category.additionalAxes}
                             />
@@ -221,10 +274,8 @@ const App: Component = () => {
         <H2>Results</H2>
         <Show when={data()} fallback={<p># Cells before filtering: ...</p>}>
           <p># Cells before filtering: {data()!.cell_rna_stats.num_rows}</p>
+          <p># Cells after sample filtering: {filteredData()!.cell_rna_stats.num_rows}</p>
         </Show>
-        {/* <Show when={qcPass()} fallback={<p># Cells after filtering: ...</p>}>
-          <p># Cells after filtering: {_.sum(qcPass()!)}</p>
-        </Show> */}
       </div>
       <div>
         <H2>Overview of loaded data</H2>
@@ -237,7 +288,7 @@ const App: Component = () => {
             <div>
               <H3>{category.name}</H3>
               <Show when={data()}>
-                <DataSummaryTable data={data()![category.key]} />
+                <DataSummaryTable data={filteredData()![category.key]} />
               </Show>
             </div>
           )}
