@@ -132,7 +132,7 @@ const qcCategories: QCCategory[] = [
         type: "histogram",
         field: "cellbender_cell_probability",
         label: "CellBender cell probability",
-        cutoffMin: undefined,
+        cutoffMin: 0.5,
         cutoffMax: undefined,
         nBins: 50,
         groupBy: "sample_id",
