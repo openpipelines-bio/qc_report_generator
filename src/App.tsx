@@ -128,6 +128,16 @@ const qcCategories: QCCategory[] = [
         groupBy: "sample_id",
         yAxisType: "log",
       },
+      {
+        type: "histogram",
+        field: "cellbender_probability",
+        label: "CellBender probability",
+        cutoffMin: undefined,
+        cutoffMax: undefined,
+        nBins: 50,
+        groupBy: "sample_id",
+        yAxisType: "linear",
+      }
     ],
   },
 ];
