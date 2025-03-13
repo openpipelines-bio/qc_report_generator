@@ -137,23 +137,6 @@ const qcCategories: QCCategory[] = [
         nBins: 50,
         groupBy: "sample_id",
         yAxisType: "linear",
-      }
-    ],
-  },
-  {
-    name: "Ambient RNA QC",
-    key: "ambient_rna_stats",
-    additionalAxes: true,
-    defaultFilters: [
-      {
-        type: "histogram",
-        field: "cellbender_cell_probability",
-        label: "CellBender cell probability",
-        cutoffMin: 0.5,
-        cutoffMax: undefined,
-        nBins: 50,
-        groupBy: "sample_id",
-        yAxisType: "linear",
       },
       {
         type: "histogram",
@@ -184,9 +167,9 @@ const qcCategories: QCCategory[] = [
         nBins: 50,
         groupBy: "sample_id",
         yAxisType: "linear",
-      },
-    ]
-  }
+      }
+    ],
+  },
 ];
 
 const App: Component = () => {
