@@ -130,6 +130,53 @@ const qcCategories: QCCategory[] = [
       },
     ],
   },
+  {
+    name: "Cellbender RNA QC",
+    key: "cellbender_rna_stats",
+    additionalAxes: true,
+    defaultFilters: [
+      {
+        type: "histogram",
+        field: "cellbender_cell_probability",
+        label: "CellBender cell probability",
+        cutoffMin: 0.5,
+        cutoffMax: undefined,
+        nBins: 50,
+        groupBy: "sample_id",
+        yAxisType: "linear",
+      },
+      {
+        type: "histogram",
+        field: "cellbender_background_fraction",
+        label: "CellBender background fraction",
+        cutoffMin: undefined,
+        cutoffMax: undefined,
+        nBins: 50,
+        groupBy: "sample_id",
+        yAxisType: "linear",
+      },
+      {
+        type: "histogram",
+        field: "cellbender_cell_size",
+        label: "CellBender cell size",
+        cutoffMin: undefined,
+        cutoffMax: undefined,
+        nBins: 50,
+        groupBy: "sample_id",
+        yAxisType: "linear",
+      },
+      {
+        type: "histogram",
+        field: "cellbender_droplet_efficiency",
+        label: "CellBender droplet efficiency",
+        cutoffMin: undefined,
+        cutoffMax: undefined,
+        nBins: 50,
+        groupBy: "sample_id",
+        yAxisType: "linear",
+      }
+    ],
+  },
 ];
 
 const App: Component = () => {
