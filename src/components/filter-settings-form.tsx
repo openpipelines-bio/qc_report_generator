@@ -83,6 +83,56 @@ export function FilterSettingsForm(props: Props) {
               <TextFieldLabel># Bins</TextFieldLabel>
               <TextFieldInput />
             </NumberField>
+            
+            {/* New X-axis type selector */}
+            <Select
+              value={props.filterSettings.xAxisType || "linear"}
+              onChange={(value) =>
+                props.updateFilterSettings((settings) => {
+                  settings.xAxisType = value as "log" | "linear";
+                  return settings;
+                })
+              }
+              options={["linear", "log"]}
+              itemComponent={(props) => (
+                <SelectItem item={props.item}>
+                  {props.item.rawValue}
+                </SelectItem>
+              )}
+            >
+              <Label>X-Axis Scale</Label>
+              <SelectTrigger aria-label="Select X-axis scale">
+                <SelectValue<"linear" | "log">>
+                  {(state) => state.selectedOption()}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent />
+            </Select>
+            
+            {/* New Y-axis type selector */}
+            <Select
+              value={props.filterSettings.yAxisType || "linear"}
+              onChange={(value) =>
+                props.updateFilterSettings((settings) => {
+                  settings.yAxisType = value as "log" | "linear";
+                  return settings;
+                })
+              }
+              options={["linear", "log"]}
+              itemComponent={(props) => (
+                <SelectItem item={props.item}>
+                  {props.item.rawValue}
+                </SelectItem>
+              )}
+            >
+              <Label>Y-Axis Scale</Label>
+              <SelectTrigger aria-label="Select Y-axis scale">
+                <SelectValue<"linear" | "log">>
+                  {(state) => state.selectedOption()}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent />
+            </Select>
           </div>
         </CardContent>
       </Card>
