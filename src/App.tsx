@@ -128,13 +128,6 @@ const qcCategories: QCCategory[] = [
         groupBy: "sample_id",
         yAxisType: "log",
       },
-    ],
-  },
-  {
-    name: "Cellbender RNA QC",
-    key: "cellbender_rna_stats",
-    additionalAxes: true,
-    defaultFilters: [
       {
         type: "histogram",
         field: "cellbender_cell_probability",
