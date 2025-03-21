@@ -40,15 +40,17 @@ const qcCategories: QCCategory[] = [
         type: "bar",
         field: "Number_of_reads_in_the_library",
         label: "Number of reads per library",
-        nBins: 10, // todo: remove
+        description: "Shows the total sequencing depth for each sample. Higher values generally indicate more comprehensive cell profiling.",
+        nBins: 10,
         groupBy: "sample_id",
         xAxisType: "linear",
-        yAxisType: "linear", // todo: remove
+        yAxisType: "linear",
       },
       {
         type: "bar",
         field: "Confidently_mapped_reads_in_cells",
         label: "Confidently mapped reads in cells",
+        description: "Indicates the number of reads that mapped unambiguously to the reference genome within cell-containing droplets.",
         groupBy: "sample_id",
         nBins: 10,
         yAxisType: "linear",
@@ -57,6 +59,7 @@ const qcCategories: QCCategory[] = [
         type: "bar",
         field: "Estimated_number_of_cells",
         label: "Estimated number of cells",
+        description: "Shows CellRanger's estimate of the number of cells in each sample based on the UMI count distribution.",
         groupBy: "sample_id",
         nBins: 10,
         yAxisType: "linear",
@@ -65,6 +68,7 @@ const qcCategories: QCCategory[] = [
         type: "bar",
         field: "Sequencing_saturation",
         label: "Sequencing saturation",
+        description: "Indicates the fraction of reads that are duplicates of existing UMIs. Higher values suggest deeper sequencing coverage.",
         groupBy: "sample_id",
         nBins: 10,
         yAxisType: "linear",
@@ -80,6 +84,7 @@ const qcCategories: QCCategory[] = [
         type: "histogram",
         field: "total_counts",
         label: "Total UMI per cell",
+        description: "Distribution of total UMI counts per cell. Very low counts may indicate empty droplets or dead cells.",
         cutoffMin: 200,
         cutoffMax: undefined,
         zoomMax: 2000,
@@ -91,6 +96,7 @@ const qcCategories: QCCategory[] = [
         type: "histogram",
         field: "num_nonzero_vars",
         label: "Number of non-zero genes per cell",
+        description: "Number of genes detected in each cell. Low gene counts may indicate poor-quality cells or empty droplets.",
         cutoffMin: 20,
         cutoffMax: undefined,
         zoomMax: 2000,
@@ -100,8 +106,9 @@ const qcCategories: QCCategory[] = [
       },
       {
         type: "histogram",
-        field: "fraction_mitochondrial_genes",
+        field: "fraction_mitochondrial",
         label: "Fraction UMI of mitochondrial genes per cell",
+        description: "Proportion of transcripts from mitochondrial genes. High values often indicate stressed or dying cells.",
         cutoffMin: undefined,
         cutoffMax: 0.08,
         nBins: 50,
@@ -110,8 +117,9 @@ const qcCategories: QCCategory[] = [
       },
       {
         type: "histogram",
-        field: "fraction_ribosomal_genes",
+        field: "fraction_ribosomal",
         label: "Fraction UMI of ribosomal genes per cell",
+        description: "Proportion of transcripts from ribosomal genes. Can indicate cell state and RNA quality.",
         cutoffMin: undefined,
         cutoffMax: undefined,
         nBins: 50,
@@ -122,6 +130,7 @@ const qcCategories: QCCategory[] = [
         type: "histogram",
         field: "pct_of_counts_in_top_50_vars",
         label: "Fraction UMI in top 50 genes per cell",
+        description: "Proportion of UMIs from the 50 most-expressed genes. High values may indicate low complexity or specialized cell types.",
         cutoffMin: undefined,
         cutoffMax: undefined,
         nBins: 50,
@@ -132,6 +141,7 @@ const qcCategories: QCCategory[] = [
         type: "histogram",
         field: "cellbender_cell_probability",
         label: "CellBender cell probability",
+        description: "Probability that a barcode corresponds to a cell (vs. background) according to CellBender's model.",
         cutoffMin: 0.5,
         cutoffMax: undefined,
         nBins: 50,
@@ -142,6 +152,7 @@ const qcCategories: QCCategory[] = [
         type: "histogram",
         field: "cellbender_background_fraction",
         label: "CellBender background fraction",
+        description: "Estimated fraction of UMIs that come from ambient RNA rather than the cell itself.",
         cutoffMin: undefined,
         cutoffMax: undefined,
         nBins: 50,
@@ -152,6 +163,7 @@ const qcCategories: QCCategory[] = [
         type: "histogram",
         field: "cellbender_cell_size",
         label: "CellBender cell size",
+        description: "Estimate of true RNA content per cell after removing ambient RNA background.",
         cutoffMin: undefined,
         cutoffMax: undefined,
         nBins: 50,
@@ -162,6 +174,7 @@ const qcCategories: QCCategory[] = [
         type: "histogram",
         field: "cellbender_droplet_efficiency",
         label: "CellBender droplet efficiency",
+        description: "Estimate of RNA capture efficiency for each droplet in the experiment.",
         cutoffMin: undefined,
         cutoffMax: undefined,
         nBins: 50,
@@ -223,6 +236,10 @@ const App: Component = () => {
                   return (
                     <div>
                       <H3>{settings[category.key][i()].label}</H3>
+                      {/* Add description display here */}
+                      <Show when={settings[category.key][i()].description}>
+                        <p class="text-gray-600 text-sm mb-2">{settings[category.key][i()].description}</p>
+                      </Show>
                       <div class="flex flex-col space-y-2">
                         <Switch>
                           <Match when={!data()}>
