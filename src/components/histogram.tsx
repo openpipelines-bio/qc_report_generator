@@ -23,28 +23,69 @@ function calculateBinCounts(
   let groupCounts: number[][] | undefined = undefined;
   
   if (groupValues) {
-    const groupCount = Math.max(...groupValues) + 1;
-    groupCounts = _.fill(Array(groupCount), 0).map(() => 
-      _.fill(Array(numBins + 2), 0)
-    );
+    try {
+      // Get unique values instead of using max (safer approach)
+      const uniqueGroups = Array.from(new Set(groupValues.filter(v => 
+        Number.isFinite(v) && v >= 0 && v < 1000
+      )));
+      
+      // Create a mapping from original values to array indices
+      const groupMap = new Map(uniqueGroups.map((val, idx) => [val, idx]));
+      const groupCount = groupMap.size;
+      
+      if (groupCount > 0) {
+        groupCounts = Array(groupCount).fill(0).map(() => 
+          Array(numBins + 2).fill(0)
+        );
+        
+        // Use the mapping for incrementing counts
+        for (let i = 0; i < values.length; i++) {
+          const v = values[i];
+          let bin = 0;
+          
+          if (v < actualMin) {
+            bin = 0;
+          } else if (v >= actualMax) {
+            bin = numBins + 1;
+          } else {
+            bin = Math.floor((v - actualMin) / binSize) + 1;
+          }
+          
+          // Update total bin counts for all values
+          binCounts[bin] += 1;
+          
+          // Also update group-specific counts
+          const groupVal = groupValues[i];
+          const groupIdx = groupMap.get(groupVal);
+          
+          if (groupIdx !== undefined && groupCounts) {
+            groupCounts[groupIdx][bin] += 1;
+          }
+        }
+      }
+      
+      return { binCounts, groupCounts };
+    } catch (err) {
+      console.error("Error in histogram grouping:", err);
+      // Fall through to non-grouped calculation
+    }
   }
   
-  for (let i = 0; i < values.length; i++) {
-    const v = values[i];
-    let bin: number;
-    
-    if (v < actualMin) {
-      bin = 0;
-    } else if (v >= actualMax) {
-      bin = numBins + 1;
-    } else {
-      bin = Math.floor((v - actualMin) / binSize) + 1;
-    }
-    
-    binCounts[bin] += 1;
-    
-    if (groupValues && groupCounts) {
-      groupCounts[groupValues[i]][bin] += 1;
+  // Only run this if we don't have groupValues or if grouping failed
+  if (!groupValues || !groupCounts) {
+    for (let i = 0; i < values.length; i++) {
+      const v = values[i];
+      let bin = 0;
+      
+      if (v < actualMin) {
+        bin = 0;
+      } else if (v >= actualMax) {
+        bin = numBins + 1;
+      } else {
+        bin = Math.floor((v - actualMin) / binSize) + 1;
+      }
+      
+      binCounts[bin] += 1;
     }
   }
   
@@ -197,7 +238,18 @@ function histogramLayout(props: {
     : undefined;
     
   if (groupColumn && props.additionalAxes) {
-    const groupNames = groupColumn.categories!;
+    // Add debugging and defensive code
+    console.log("Group column found:", props.groupName, groupColumn);
+    
+    // Check if categories exist and create default if missing
+    const uniqueValues = Array.from(new Set(groupColumn.data as number[]));
+    const groupNames = groupColumn.categories && groupColumn.categories.length > 0 
+      ? groupColumn.categories 
+      : uniqueValues.map(v => `Sample ${v}`);
+      
+    console.log("Using group names:", groupNames);
+    
+    // Continue with rest of function using groupNames instead of groupColumn.categories
     const totalPlots = groupNames.length + 1;
     plotHeight = 1.0 / totalPlots;
     
@@ -262,7 +314,7 @@ function histogramLayout(props: {
     margin: {
       b: 60,
       t: 20,
-      l: 125,
+      l: 175,
       r: 10,
       pad: 4,
     },

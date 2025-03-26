@@ -16,6 +16,7 @@ import { Histogram } from "./components/histogram";
 import { FilterSettingsForm } from "./components/filter-settings-form";
 import { DataSummaryTable } from "./components/data-summary-table";
 import { BarPlot } from "./components/barplot";
+import { createMemo } from "solid-js";
 
 type QCCategory = {
   name: string;
@@ -84,10 +85,10 @@ const qcCategories: QCCategory[] = [
         type: "histogram",
         field: "total_counts",
         label: "Total UMI per cell",
-        description: "Distribution of total UMI counts per cell. Very low counts may indicate empty droplets or dead cells.",
+        description: "Total number of RNA molecules detected per cell. Values below 200 typically indicate empty droplets or low-quality cells that should be filtered out.",
         cutoffMin: 200,
         cutoffMax: undefined,
-        zoomMax: 2000,
+        zoomMax: undefined,
         nBins: 50,
         groupBy: "sample_id",
         yAxisType: "log",
@@ -96,10 +97,10 @@ const qcCategories: QCCategory[] = [
         type: "histogram",
         field: "num_nonzero_vars",
         label: "Number of non-zero genes per cell",
-        description: "Number of genes detected in each cell. Low gene counts may indicate poor-quality cells or empty droplets.",
+        description: "Count of unique genes detected in each cell. Healthy cells typically express 500-5000 genes. Low gene counts (<200) often indicate poor-quality cells.",
         cutoffMin: 20,
         cutoffMax: undefined,
-        zoomMax: 2000,
+        zoomMax: undefined,
         nBins: 50,
         groupBy: "sample_id",
         yAxisType: "log",
@@ -108,7 +109,7 @@ const qcCategories: QCCategory[] = [
         type: "histogram",
         field: "fraction_mitochondrial",
         label: "Fraction UMI of mitochondrial genes per cell",
-        description: "Proportion of transcripts from mitochondrial genes. High values often indicate stressed or dying cells.",
+        description: "Proportion of cell's RNA from mitochondrial genes. Values >8% typically indicate dying cells with damaged membranes, releasing cytoplasmic RNA.",
         cutoffMin: undefined,
         cutoffMax: 0.08,
         nBins: 50,
@@ -119,7 +120,7 @@ const qcCategories: QCCategory[] = [
         type: "histogram",
         field: "fraction_ribosomal",
         label: "Fraction UMI of ribosomal genes per cell",
-        description: "Proportion of transcripts from ribosomal genes. Can indicate cell state and RNA quality.",
+        description: "Proportion of cell's RNA from ribosomal protein genes. Extreme values may indicate stress responses or cell cycle abnormalities.",
         cutoffMin: undefined,
         cutoffMax: undefined,
         nBins: 50,
@@ -130,7 +131,7 @@ const qcCategories: QCCategory[] = [
         type: "histogram",
         field: "pct_of_counts_in_top_50_vars",
         label: "Fraction UMI in top 50 genes per cell",
-        description: "Proportion of UMIs from the 50 most-expressed genes. High values may indicate low complexity or specialized cell types.",
+        description: "Proportion of RNA molecules from the 50 most-expressed genes in each cell. High values (>80%) indicate potential low-complexity libraries or RNA degradation.",
         cutoffMin: undefined,
         cutoffMax: undefined,
         nBins: 50,
@@ -141,7 +142,7 @@ const qcCategories: QCCategory[] = [
         type: "histogram",
         field: "cellbender_cell_probability",
         label: "CellBender cell probability",
-        description: "Probability that a barcode corresponds to a cell (vs. background) according to CellBender's model.",
+        description: "CellBender's statistical confidence (0-1) that a barcode represents a real cell. Values <0.5 likely represent empty droplets with ambient RNA. Higher is better.",
         cutoffMin: 0.5,
         cutoffMax: undefined,
         nBins: 50,
@@ -152,7 +153,7 @@ const qcCategories: QCCategory[] = [
         type: "histogram",
         field: "cellbender_background_fraction",
         label: "CellBender background fraction",
-        description: "Estimated fraction of UMIs that come from ambient RNA rather than the cell itself.",
+        description: "Estimated percentage of each cell's RNA that comes from the ambient solution rather than the cell itself. Lower values (0-0.3) indicate cleaner data with less contamination.",
         cutoffMin: undefined,
         cutoffMax: undefined,
         nBins: 50,
@@ -163,7 +164,7 @@ const qcCategories: QCCategory[] = [
         type: "histogram",
         field: "cellbender_cell_size",
         label: "CellBender cell size",
-        description: "Estimate of true RNA content per cell after removing ambient RNA background.",
+        description: "CellBender's estimate of the true number of RNA molecules in each cell after removing ambient contamination. Reflects actual cell RNA content rather than raw UMI counts.",
         cutoffMin: undefined,
         cutoffMax: undefined,
         nBins: 50,
@@ -174,7 +175,7 @@ const qcCategories: QCCategory[] = [
         type: "histogram",
         field: "cellbender_droplet_efficiency",
         label: "CellBender droplet efficiency",
-        description: "Estimate of RNA capture efficiency for each droplet in the experiment.",
+        description: "CellBender's estimate of how efficiently each droplet captured RNA molecules (0-1). Higher values indicate more reliable RNA sampling within individual droplets.",
         cutoffMin: undefined,
         cutoffMax: undefined,
         nBins: 50,
@@ -222,6 +223,45 @@ const App: Component = () => {
     });
   }
 
+  // Add this function to calculate cells passing all filters
+  const qcPass = createMemo(() => {
+    if (!data()) return null;
+    
+    const cellRnaData = data()!.cell_rna_stats;
+    const numCells = cellRnaData.num_rows;
+    const passFilter = new Array(numCells).fill(true);
+    
+    // Apply all active filters
+    for (const filterSettings of settings.cell_rna_stats) {
+      if (filterSettings.type !== "histogram") continue;
+      
+      const column = cellRnaData.columns.find(c => c.name === filterSettings.field);
+      if (!column) continue;
+      
+      const values = column.data as number[];
+      const cutoffMin = filterSettings.cutoffMin;
+      const cutoffMax = filterSettings.cutoffMax;
+      
+      // Skip filters with no cutoffs
+      if (cutoffMin === undefined && cutoffMax === undefined) continue;
+      
+      // Apply min/max cutoffs more efficiently
+      for (let i = 0; i < numCells; i++) {
+        // Skip cells that already failed
+        if (!passFilter[i]) continue;
+        
+        // Check cutoffs
+        if ((cutoffMin !== undefined && values[i] < cutoffMin) ||
+            (cutoffMax !== undefined && values[i] > cutoffMax)) {
+          passFilter[i] = false;
+        }
+      }
+    }
+    
+    // Count cells passing all filters
+    return passFilter.filter(Boolean).length;
+  });
+
   // page layout
   return (
     <div class="container mx-a space-y-2">
@@ -233,6 +273,8 @@ const App: Component = () => {
             <div class="grid grid-cols-1 gap-4">
               <For each={settings[category.key]}>
                 {(_, i) => {
+                  const [isExpanded, setIsExpanded] = createSignal(true); // Start expanded
+                  
                   return (
                     <div>
                       <H3>{settings[category.key][i()].label}</H3>
@@ -240,32 +282,45 @@ const App: Component = () => {
                       <Show when={settings[category.key][i()].description}>
                         <p class="text-gray-600 text-sm mb-2">{settings[category.key][i()].description}</p>
                       </Show>
-                      <div class="flex flex-col space-y-2">
-                        <Switch>
-                          <Match when={!data()}>
-                            <div>Loading...</div>
-                          </Match>
-                          <Match when={settings[category.key][i()].type === "bar"}>
-                            <BarPlot
-                              data={data()![category.key]}
-                              filterSettings={settings[category.key][i()]}
-                            />
-                          </Match>
-                          <Match when={settings[category.key][i()].type === "histogram"}>
-                            <Histogram
-                              data={data()![category.key]}
-                              filterSettings={settings[category.key][i()]}
-                              additionalAxes={category.additionalAxes}
-                            />
-                          </Match>
-                        </Switch>
-                        <FilterSettingsForm
-                          filterSettings={settings[category.key][i()]}
-                          updateFilterSettings={(fn) =>
-                            setSettings(category.key, i(), produce(fn))
-                          }
-                        />
-                      </div>
+                      
+                      <button 
+                        onClick={() => setIsExpanded(!isExpanded())}
+                        class="w-full px-4 py-2 text-left text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md flex justify-between items-center mb-2"
+                      >
+                        <span>Toggle Plot Visibility</span>
+                        <span class="transition-transform duration-200" classList={{ "rotate-180": !isExpanded() }}>
+                          ▼
+                        </span>
+                      </button>
+                      
+                      {isExpanded() && (
+                        <div class="flex flex-col space-y-2">
+                          <Switch>
+                            <Match when={!data()}>
+                              <div>Loading...</div>
+                            </Match>
+                            <Match when={settings[category.key][i()].type === "bar"}>
+                              <BarPlot
+                                data={data()![category.key]}
+                                filterSettings={settings[category.key][i()]}
+                              />
+                            </Match>
+                            <Match when={settings[category.key][i()].type === "histogram"}>
+                              <Histogram
+                                data={data()![category.key]}
+                                filterSettings={settings[category.key][i()]}
+                                additionalAxes={category.additionalAxes}
+                              />
+                            </Match>
+                          </Switch>
+                          <FilterSettingsForm
+                            filterSettings={settings[category.key][i()]}
+                            updateFilterSettings={(fn) =>
+                              setSettings(category.key, i(), produce(fn))
+                            }
+                          />
+                        </div>
+                      )}
                     </div>
                   );
                 }}
@@ -279,9 +334,9 @@ const App: Component = () => {
         <Show when={data()} fallback={<p># Cells before filtering: ...</p>}>
           <p># Cells before filtering: {data()!.cell_rna_stats.num_rows}</p>
         </Show>
-        {/* <Show when={qcPass()} fallback={<p># Cells after filtering: ...</p>}>
-          <p># Cells after filtering: {_.sum(qcPass()!)}</p>
-        </Show> */}
+        <Show when={data()} fallback={<p># Cells after filtering: ...</p>}>
+          <p># Cells after filtering: {qcPass()}</p>
+        </Show>
       </div>
       <div>
         <H2>Overview of loaded data</H2>
