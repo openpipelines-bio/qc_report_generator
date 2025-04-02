@@ -238,8 +238,6 @@ function histogramLayout(props: {
     : undefined;
     
   if (groupColumn && props.additionalAxes) {
-    // Add debugging and defensive code
-    console.log("Group column found:", props.groupName, groupColumn);
     
     // Check if categories exist and create default if missing
     const uniqueValues = Array.from(new Set(groupColumn.data as number[]));

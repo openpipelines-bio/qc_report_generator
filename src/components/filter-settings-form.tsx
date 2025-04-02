@@ -31,7 +31,7 @@ export function FilterSettingsForm(props: Props) {
         onClick={() => setIsExpanded(!isExpanded())}
         class="w-full px-4 py-2 text-left text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md flex justify-between items-center mb-2"
       >
-        <span>Figure Settings</span>
+        <span>Visualisation Settings & Filter Thresholds</span>
         <span class="transition-transform duration-200" classList={{ "rotate-180": isExpanded() }}>
           ▼
         </span>
