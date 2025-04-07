@@ -189,6 +189,8 @@ const qcCategories: QCCategory[] = [
 
 const App: Component = () => {
   const [data, setData] = createSignal<RawData>();
+  // Move this declaration before filteredData
+  const [selectedSamples, setSelectedSamples] = createSignal<string[]>([]);
 
   // read data in memory
   createEffect(async () => {
@@ -196,49 +198,68 @@ const App: Component = () => {
     setData(await getData());
   });
 
-  // Add this after your data() signal definition
-  const filteredData = () => {
+  // Now filteredData can safely access selectedSamples
+  const filteredData = createMemo(() => {
     const rawData = data();
     const samples = selectedSamples();
     
     if (!rawData || samples.length === 0) return rawData;
     
-    // Create a deep copy to avoid modifying the original data
-    const filtered = _.cloneDeep(rawData);
+    // Create a new object but avoid deep cloning
+    const filtered: RawData = {};
     
     // Filter each data category
-    for (const key in filtered) {
-      const category = filtered[key as keyof RawData];
+    for (const key in rawData) {
+      const category = rawData[key as keyof RawData];
+      const filteredCategory = { ...category }; // shallow clone
       
       // Find sample_id column index
       const sampleIdCol = category.columns.find(col => col.name === "sample_id");
       
       if (sampleIdCol) {
         const sampleCategories = sampleIdCol.categories || [];
+        const selectedSamplesSet = new Set(samples);
         
-        // Get indices of selected samples
+        // Create an index array of rows to include - only iterate once
+        
         const selectedIndices: number[] = [];
+        
+        // Check if we're working with a typed array for better performance
+        const data = sampleIdCol.data;
         for (let i = 0; i < category.num_rows; i++) {
-          const sampleIndex = sampleIdCol.data[i] as number;
+          const sampleIndex = data[i] as number;
           const sampleName = sampleCategories[sampleIndex];
-          if (samples.includes(sampleName)) {
+          if (selectedSamplesSet.has(sampleName)) {
             selectedIndices.push(i);
           }
         }
         
-        // Filter each column's data
-        category.columns = category.columns.map(col => ({
-          ...col,
-          data: selectedIndices.map(i => col.data[i])
-        }));
+        // More efficient column filtering
+        filteredCategory.columns = category.columns.map(col => {
+          // For better performance with large arrays
+          const originalData = col.data;
+          
+          // Always create a regular array to match the RawDataColumn type
+          const newData = new Array(selectedIndices.length);
+          for (let i = 0; i < selectedIndices.length; i++) {
+            newData[i] = originalData[selectedIndices[i]];
+          }
+          
+          return {
+            ...col,
+            data: newData
+          };
+        });
         
         // Update row count
-        category.num_rows = selectedIndices.length;
+        filteredCategory.num_rows = selectedIndices.length;
       }
+      
+      filtered[key] = filteredCategory;
     }
     
     return filtered;
-  };
+  });
 
   // initialise filtersettings
   type Settings = {
@@ -269,7 +290,8 @@ const App: Component = () => {
   }
 
   // Somewhere in your App component
-  const [selectedSamples, setSelectedSamples] = createSignal<string[]>([]);
+  // Remove the duplicate declaration that was here
+  // const [selectedSamples, setSelectedSamples] = createSignal<string[]>([]);
 
   // Add this function to calculate cells passing all filters
   const qcPass = createMemo(() => {
