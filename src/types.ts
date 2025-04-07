@@ -19,6 +19,7 @@ export type FilterSettings = {
   type: "bar" | "histogram";
   field: string;
   label: string;
+  description?: string;
   cutoffMin?: number;
   cutoffMax?: number;
   zoomMin?: number;
