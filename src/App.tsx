@@ -18,6 +18,8 @@ import { DataSummaryTable } from "./components/data-summary-table";
 import { BarPlot } from "./components/barplot";
 import { createMemo } from "solid-js";
 import { SampleFilterForm } from "./components/sample-filter-form";
+import { filterData, calculateQcPassCells } from "./lib/data-filters";
+import { transformSampleMetadata } from "./lib/sample-utils";
 
 type QCCategory = {
   name: string;
@@ -189,7 +191,6 @@ const qcCategories: QCCategory[] = [
 
 const App: Component = () => {
   const [data, setData] = createSignal<RawData>();
-  // Move this declaration before filteredData
   const [selectedSamples, setSelectedSamples] = createSignal<string[]>([]);
 
   // read data in memory
@@ -198,67 +199,9 @@ const App: Component = () => {
     setData(await getData());
   });
 
-  // Now filteredData can safely access selectedSamples
+  // Use the imported filter function
   const filteredData = createMemo(() => {
-    const rawData = data();
-    const samples = selectedSamples();
-    
-    if (!rawData || samples.length === 0) return rawData;
-    
-    // Create a new object but avoid deep cloning
-    const filtered: RawData = {};
-    
-    // Filter each data category
-    for (const key in rawData) {
-      const category = rawData[key as keyof RawData];
-      const filteredCategory = { ...category }; // shallow clone
-      
-      // Find sample_id column index
-      const sampleIdCol = category.columns.find(col => col.name === "sample_id");
-      
-      if (sampleIdCol) {
-        const sampleCategories = sampleIdCol.categories || [];
-        const selectedSamplesSet = new Set(samples);
-        
-        // Create an index array of rows to include - only iterate once
-        
-        const selectedIndices: number[] = [];
-        
-        // Check if we're working with a typed array for better performance
-        const data = sampleIdCol.data;
-        for (let i = 0; i < category.num_rows; i++) {
-          const sampleIndex = data[i] as number;
-          const sampleName = sampleCategories[sampleIndex];
-          if (selectedSamplesSet.has(sampleName)) {
-            selectedIndices.push(i);
-          }
-        }
-        
-        // More efficient column filtering
-        filteredCategory.columns = category.columns.map(col => {
-          // For better performance with large arrays
-          const originalData = col.data;
-          
-          // Always create a regular array to match the RawDataColumn type
-          const newData = new Array(selectedIndices.length);
-          for (let i = 0; i < selectedIndices.length; i++) {
-            newData[i] = originalData[selectedIndices[i]];
-          }
-          
-          return {
-            ...col,
-            data: newData
-          };
-        });
-        
-        // Update row count
-        filteredCategory.num_rows = selectedIndices.length;
-      }
-      
-      filtered[key] = filteredCategory;
-    }
-    
-    return filtered;
+    return filterData(data(), selectedSamples());
   });
 
   // initialise filtersettings
@@ -289,47 +232,9 @@ const App: Component = () => {
     });
   }
 
-  // Somewhere in your App component
-  // Remove the duplicate declaration that was here
-  // const [selectedSamples, setSelectedSamples] = createSignal<string[]>([]);
-
-  // Add this function to calculate cells passing all filters
+  // Use the imported cell counting function
   const qcPass = createMemo(() => {
-    if (!data()) return null;
-    
-    const cellRnaData = data()!.cell_rna_stats;
-    const numCells = cellRnaData.num_rows;
-    const passFilter = new Array(numCells).fill(true);
-    
-    // Apply all active filters
-    for (const filterSettings of settings.cell_rna_stats) {
-      if (filterSettings.type !== "histogram") continue;
-      
-      const column = cellRnaData.columns.find(c => c.name === filterSettings.field);
-      if (!column) continue;
-      
-      const values = column.data as number[];
-      const cutoffMin = filterSettings.cutoffMin;
-      const cutoffMax = filterSettings.cutoffMax;
-      
-      // Skip filters with no cutoffs
-      if (cutoffMin === undefined && cutoffMax === undefined) continue;
-      
-      // Apply min/max cutoffs more efficiently
-      for (let i = 0; i < numCells; i++) {
-        // Skip cells that already failed
-        if (!passFilter[i]) continue;
-        
-        // Check cutoffs
-        if ((cutoffMin !== undefined && values[i] < cutoffMin) ||
-            (cutoffMax !== undefined && values[i] > cutoffMax)) {
-          passFilter[i] = false;
-        }
-      }
-    }
-    
-    // Count cells passing all filters
-    return passFilter.filter(Boolean).length;
+    return calculateQcPassCells(filteredData(), settings.cell_rna_stats || []);
   });
 
   // page layout
@@ -436,34 +341,5 @@ const App: Component = () => {
     </div>
   );
 };
-
-function transformSampleMetadata(data?: RawData) {
-  if (!data?.sample_summary_stats) return {};
-  
-  const stats = data.sample_summary_stats;
-  const result: Record<string, any> = {};
-  
-  // Find sample_id column to get sample names
-  const sampleIdCol = stats.columns.find(col => col.name === "sample_id");
-  if (!sampleIdCol || !sampleIdCol.categories) return {};
-  
-  // Get indices and sample names
-  for (let i = 0; i < stats.num_rows; i++) {
-    const sampleIdx = sampleIdCol.data[i] as number;
-    const sampleId = sampleIdCol.categories[sampleIdx];
-    
-    // Create object for this sample
-    result[sampleId] = {};
-    
-    // Add each metric to this sample
-    for (const column of stats.columns) {
-      if (column.name !== "sample_id") {
-        result[sampleId][column.name] = column.data[i];
-      }
-    }
-  }
-  
-  return result;
-}
 
 export default App;

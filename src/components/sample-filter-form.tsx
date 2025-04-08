@@ -1,18 +1,23 @@
+import { RawData } from "../types";
 import { For, createEffect, createSignal } from "solid-js";
 
-export function SampleFilterForm(props: {
+interface SampleMetadata {
+  rna_num_barcodes?: number;
+  rna_num_barcodes_filtered?: number;
+  rna_sum_total_counts?: number;
+  rna_median_total_counts?: number;
+  rna_overall_num_nonzero_vars?: number;
+  rna_median_num_nonzero_vars?: number;
+}
+
+interface SampleFilterFormProps {
   sampleIds: string[];
   selectedSamples: string[];
   onChange: (samples: string[]) => void;
-  sampleMetadata?: Record<string, {
-    rna_num_barcodes?: number;
-    rna_num_barcodes_filtered?: number;
-    rna_sum_total_counts?: number;
-    rna_median_total_counts?: number;
-    rna_overall_num_nonzero_vars?: number;
-    rna_median_num_nonzero_vars?: number;
-  }>;
-}) {
+  sampleMetadata?: Record<string, SampleMetadata>;
+}
+
+export function SampleFilterForm(props: SampleFilterFormProps) {
   const [viewMode, setViewMode] = createSignal<"simple" | "table">("simple");
   
   // Select all samples by default when component mounts
