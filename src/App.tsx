@@ -299,6 +299,7 @@ const App: Component = () => {
                             updateFilterSettings={(fn) =>
                               setSettings(category.key, i(), produce(fn))
                             }
+                            data={filteredData()![category.key]}
                           />
                         </div>
                       )}

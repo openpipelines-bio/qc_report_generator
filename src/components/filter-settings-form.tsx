@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/small-card";
-import { FilterSettings } from "~/types";
+import { FilterSettings, RawDataCategory } from "~/types";
 import { TextFieldInput, TextFieldLabel } from "./ui/text-field";
 import { NumberField } from "./number-field";
 import { createSignal } from "solid-js";
@@ -20,10 +20,21 @@ import { createSignal } from "solid-js";
 type Props = {
   filterSettings: FilterSettings;
   updateFilterSettings: (fn: (settings: FilterSettings) => FilterSettings) => void;
+  data: RawDataCategory; // Add this new prop to receive the data
 }
 
 export function FilterSettingsForm(props: Props) {
   const [isExpanded, setIsExpanded] = createSignal(false);
+  
+  // Get all categorical columns from the data
+  const getCategoricalColumns = () => {
+    const categoricalColumns = props.data.columns
+      .filter(col => col.dtype === "categorical")
+      .map(col => col.name);
+    
+    // Add a "<none>" option at the beginning
+    return ["<none>", ...categoricalColumns];
+  };
   
   return (
     <div>
@@ -73,7 +84,7 @@ export function FilterSettingsForm(props: Props) {
                       return settings;
                     })
                   }
-                  options={["<none>", "sample_id"]}
+                  options={getCategoricalColumns()}
                   itemComponent={(props) => (
                     <SelectItem item={props.item}>
                       {props.item.rawValue}
@@ -82,7 +93,7 @@ export function FilterSettingsForm(props: Props) {
                 >
                   <Label>Group By</Label>
                   <SelectTrigger aria-label="Select axis type">
-                    <SelectValue<"sample_id">>
+                    <SelectValue<string>>
                       {(state) => state.selectedOption()}
                     </SelectValue>
                   </SelectTrigger>
