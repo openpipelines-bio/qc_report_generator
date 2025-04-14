@@ -102,7 +102,21 @@ export function SampleFilterForm(props: SampleFilterFormProps) {
                 </th>
                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Sample ID</th>
                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Barcodes</th>
-                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Filtered Barcodes</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                  <div class="flex items-center">
+                    <span>Filtered Barcodes</span>
+                    <div class="ml-1 relative group">
+                      <svg class="w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                      </svg>
+                      <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                        <div class="bg-black text-white text-xs rounded py-1 px-2 max-w-xs">
+                          Cells that passed pre-filtering (min. total counts = 10, min. non-zero genes = 10)
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </th>
                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Sum Total Counts</th>
                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Median Total Counts</th>
                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Overall Nonzero Vars</th>
@@ -141,6 +155,21 @@ export function SampleFilterForm(props: SampleFilterFormProps) {
       
       <div class="mt-2 text-sm text-gray-500">
         {props.selectedSamples.length} of {props.sampleIds.length} samples selected
+      </div>
+
+      {/* Add info about pre-filtering */}
+      <div class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm">
+        <div class="flex items-start">
+          <div class="flex-shrink-0 mt-0.5">
+            <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <div class="ml-3">
+            <h4 class="font-medium text-blue-800">Data was pre-filtered with default thresholds (min. total counts = 10, min. non-zero genes = 10). 
+            The "Filtered Barcodes" column shows the number of cells that passed this initial filtering.</h4>
+          </div>
+        </div>
       </div>
     </div>
   );
