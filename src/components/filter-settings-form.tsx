@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/small-card";
-import { FilterSettings, RawDataCategory } from "~/types";
+import { FilterSettings, RawDataCategory, RawData } from "~/types";
 import { TextFieldInput, TextFieldLabel } from "./ui/text-field";
 import { NumberField } from "./number-field";
 import { createSignal } from "solid-js";
@@ -25,6 +25,7 @@ type Props = {
   globalGroupBy?: string | undefined;
   forceGroupBy?: string | undefined;
   isGlobalGroupingEnabled?: boolean; // Add this prop
+  category?: keyof RawData; // Add this to identify if we're in cell_rna_stats
 }
 
 export function FilterSettingsForm(props: Props) {
@@ -38,6 +39,42 @@ export function FilterSettingsForm(props: Props) {
     
     // Add a "<none>" option at the beginning
     return ["<none>", ...categoricalColumns];
+  };
+
+  // Inside the component, add this function to calculate filter impact
+  const getFilterImpact = () => {
+    // Only apply for histogram plots with thresholds and in cell_rna_stats category
+    if (props.category !== 'cell_rna_stats' || 
+        props.filterSettings.type !== 'histogram' || 
+        (props.filterSettings.cutoffMin === undefined && props.filterSettings.cutoffMax === undefined)) {
+      return null;
+    }
+    
+    const cellsData = props.data;
+    if (!cellsData || !cellsData.columns) return null;
+    
+    const field = props.filterSettings.field;
+    const min = props.filterSettings.cutoffMin;
+    const max = props.filterSettings.cutoffMax;
+    
+    const colIndex = cellsData.columns.findIndex(c => c.name === field);
+    if (colIndex < 0) return null;
+    
+    const colData = cellsData.columns[colIndex].data;
+    const totalCells = colData.length;
+    let affectedCount = 0;
+    
+    for (let i = 0; i < totalCells; i++) {
+      const val = colData[i];
+      if ((min !== undefined && val < min) || (max !== undefined && val > max)) {
+        affectedCount++;
+      }
+    }
+    
+    const percent = Math.round((affectedCount / totalCells) * 100);
+    const isHighImpact = percent > 30;
+    
+    return { affectedCount, totalCells, percent, isHighImpact };
   };
   
   return (
@@ -208,6 +245,23 @@ export function FilterSettingsForm(props: Props) {
                   <TextFieldLabel>Max</TextFieldLabel>
                   <TextFieldInput />
                 </NumberField>
+                {/* Add this after the min/max cutoff fields */}
+                {props.filterSettings.type === "histogram" && (props.filterSettings.cutoffMin !== undefined || props.filterSettings.cutoffMax !== undefined) && props.category === 'cell_rna_stats' && (
+                  () => {
+                    const impact = getFilterImpact();
+                    return impact && (
+                      <div class="col-span-2 mt-2 text-sm text-gray-600">
+                        <div class="flex items-center">
+                          <span class="mr-2">Filter impact:</span>
+                          <span class={impact.isHighImpact ? "text-amber-600 font-medium" : ""}>
+                            Removing {impact.affectedCount} of {impact.totalCells} cells ({impact.percent}%)
+                          </span>
+                          {impact.isHighImpact && <span class="text-amber-600 ml-2">⚠️ High impact</span>}
+                        </div>
+                      </div>
+                    );
+                  }
+                )()}
               </div>
             </CardContent>
           </Card>

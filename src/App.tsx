@@ -431,7 +431,6 @@ const App: Component = () => {
                                 data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
                                 filterSettings={{
                                   ...settings[category.key][i()],
-                                  // Same logic as above
                                   groupBy: category.key === "metrics_cellranger_stats" 
                                     ? "sample_id" 
                                     : (isGlobalGroupingEnabled() ? globalGroupBy() : (settings[category.key][i()].groupBy || "sample_id"))
@@ -449,6 +448,7 @@ const App: Component = () => {
                             globalGroupBy={category.key === "metrics_cellranger_stats" ? undefined : (isGlobalGroupingEnabled() ? globalGroupBy() : undefined)}
                             forceGroupBy={category.key === "metrics_cellranger_stats" ? "sample_id" : undefined}
                             isGlobalGroupingEnabled={isGlobalGroupingEnabled()}
+                            category={category.key} // Pass the category key
                           />
                         </div>
                       )}
@@ -464,7 +464,6 @@ const App: Component = () => {
         <H2>Results</H2>
         <Show when={data()} fallback={<p># Cells before filtering: ...</p>}>
           <p># Cells before filtering: {data()!.cell_rna_stats.num_rows}</p>
-          <p># Cells after sample filtering: {filteredData()!.cell_rna_stats.num_rows}</p>
         </Show>
         <Show when={data()} fallback={<p># Cells after filtering: ...</p>}>
           <p># Cells after filtering: {qcPass()}</p>
