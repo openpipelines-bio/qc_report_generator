@@ -94,7 +94,7 @@ const qcCategories: QCCategory[] = [
         zoomMax: undefined,
         nBins: 50,
         groupBy: "sample_id",
-        yAxisType: "log",
+        yAxisType: "linear",
       },
       {
         type: "histogram",
@@ -106,7 +106,7 @@ const qcCategories: QCCategory[] = [
         zoomMax: undefined,
         nBins: 50,
         groupBy: "sample_id",
-        yAxisType: "log",
+        yAxisType: "linear",
       },
       {
         type: "histogram",
@@ -117,7 +117,7 @@ const qcCategories: QCCategory[] = [
         cutoffMax: undefined,
         nBins: 50,
         groupBy: "sample_id",
-        yAxisType: "log",
+        yAxisType: "linear",
       },
       {
         type: "histogram",
@@ -128,7 +128,7 @@ const qcCategories: QCCategory[] = [
         cutoffMax: undefined,
         nBins: 50,
         groupBy: "sample_id",
-        yAxisType: "log",
+        yAxisType: "linear",
       },
       {
         type: "histogram",
@@ -139,7 +139,7 @@ const qcCategories: QCCategory[] = [
         cutoffMax: undefined,
         nBins: 50,
         groupBy: "sample_id",
-        yAxisType: "log",
+        yAxisType: "linear",
       },
       {
         type: "histogram",
@@ -197,6 +197,12 @@ const App: Component = () => {
   // Add a new signal to track if global grouping is enabled
   const [isGlobalGroupingEnabled, setIsGlobalGroupingEnabled] = createSignal(true);
 
+  // Add this near your other state variables
+  const [filtersApplied, setFiltersApplied] = createSignal(false);
+
+  // Add a new state to store the applied filter settings
+  const [appliedFilterSettings, setAppliedFilterSettings] = createStore<Settings>({});
+
   // Add a function to get all categorical columns
   const getCategoricalColumns = createMemo(() => {
     if (!data()) return ["sample_id"];
@@ -224,15 +230,78 @@ const App: Component = () => {
     return columnsArray;
   });
 
+  // Use the imported filter function
+  const filteredData = createMemo(() => {
+    return filterData(data(), selectedSamples());
+  });
+
+  // Modify the fullyFilteredData memo to use the applied settings instead of the current settings
+  const fullyFilteredData = createMemo(() => {
+    if (!filtersApplied()) {
+      // If filters aren't applied, just return the sample-filtered data
+      return filteredData();
+    }
+    
+    // Start with the sample-filtered data
+    const sampleFiltered = filteredData();
+    if (!sampleFiltered) return undefined;
+    
+    // Copy the data structure
+    const result = {...sampleFiltered};
+    
+    // Get cell QC filter settings from applied settings, not live settings
+    const cellFilters = appliedFilterSettings.cell_rna_stats || [];
+    
+    // Get the cell IDs that pass QC filters
+    const cellsData = sampleFiltered.cell_rna_stats;
+    const passingCellIndices = new Set<number>();
+    
+    // Start with all cells passing
+    for (let i = 0; i < cellsData.num_rows; i++) {
+      passingCellIndices.add(i);
+    }
+    
+    // Apply each filter
+    for (const filter of cellFilters) {
+      if (filter.cutoffMin !== undefined || filter.cutoffMax !== undefined) {
+        const columnIndex = cellsData.columns.findIndex(col => col.name === filter.field);
+        if (columnIndex !== -1) {
+          const columnData = cellsData.columns[columnIndex].data;
+          
+          // Filter cells based on min/max thresholds
+          for (let i = 0; i < cellsData.num_rows; i++) {
+            if (!passingCellIndices.has(i)) continue; // Skip already filtered
+            
+            const value = columnData[i];
+            if ((filter.cutoffMin !== undefined && value < filter.cutoffMin) || 
+                (filter.cutoffMax !== undefined && value > filter.cutoffMax)) {
+              passingCellIndices.delete(i);
+            }
+          }
+        }
+      }
+    }
+    
+    // Filter the cell_rna_stats data
+    const passingIndices = Array.from(passingCellIndices);
+    if (passingIndices.length < cellsData.num_rows) {
+      result.cell_rna_stats = {
+        ...cellsData,
+        num_rows: passingIndices.length,
+        columns: cellsData.columns.map(col => ({
+          ...col,
+          data: passingIndices.map(i => col.data[i])
+        }))
+      };
+    }
+    
+    return result;
+  });
+
   // read data in memory
   createEffect(async () => {
     console.log("reading data");
     setData(await getData());
-  });
-
-  // Use the imported filter function
-  const filteredData = createMemo(() => {
-    return filterData(data(), selectedSamples());
   });
 
   // initialise filtersettings
@@ -345,7 +414,7 @@ const App: Component = () => {
                             </Match>
                             <Match when={settings[category.key][i()].type === "bar"}>
                               <BarPlot
-                                data={filteredData()![category.key]}
+                                data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
                                 filterSettings={{
                                   ...settings[category.key][i()],
                                   // 1. For CellRanger metrics, always use sample_id
@@ -359,7 +428,7 @@ const App: Component = () => {
                             </Match>
                             <Match when={settings[category.key][i()].type === "histogram"}>
                               <Histogram
-                                data={filteredData()![category.key]}
+                                data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
                                 filterSettings={{
                                   ...settings[category.key][i()],
                                   // Same logic as above
@@ -376,7 +445,7 @@ const App: Component = () => {
                             updateFilterSettings={(fn) =>
                               setSettings(category.key, i(), produce(fn))
                             }
-                            data={filteredData()![category.key]}
+                            data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
                             globalGroupBy={category.key === "metrics_cellranger_stats" ? undefined : (isGlobalGroupingEnabled() ? globalGroupBy() : undefined)}
                             forceGroupBy={category.key === "metrics_cellranger_stats" ? "sample_id" : undefined}
                             isGlobalGroupingEnabled={isGlobalGroupingEnabled()}
@@ -399,6 +468,34 @@ const App: Component = () => {
         </Show>
         <Show when={data()} fallback={<p># Cells after filtering: ...</p>}>
           <p># Cells after filtering: {qcPass()}</p>
+          <div class="mt-4 flex gap-2">
+            <button 
+              onClick={() => {
+                // Take a snapshot of the current settings and save it as the applied settings
+                setAppliedFilterSettings(JSON.parse(JSON.stringify(settings)));
+                setFiltersApplied(true);
+              }}
+              class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Apply Filters to Plots
+            </button>
+            
+            <button 
+              onClick={() => {
+                setFiltersApplied(false);
+                // No need to clear applied settings - they'll be ignored when filtersApplied is false
+              }}
+              class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+            >
+              Reset to Default View
+            </button>
+            
+            {filtersApplied() && (
+              <p class="text-sm text-green-600 flex items-center">
+                ✓ Filters applied - Plots show only cells that pass all thresholds
+              </p>
+            )}
+          </div>
         </Show>
       </div>
       <div>
@@ -412,7 +509,7 @@ const App: Component = () => {
             <div>
               <H3>{category.name}</H3>
               <Show when={data()}>
-                <DataSummaryTable data={filteredData()![category.key]} />
+                <DataSummaryTable data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]} />
               </Show>
             </div>
           )}
