@@ -192,6 +192,37 @@ const qcCategories: QCCategory[] = [
 const App: Component = () => {
   const [data, setData] = createSignal<RawData>();
   const [selectedSamples, setSelectedSamples] = createSignal<string[]>([]);
+  const [globalGroupBy, setGlobalGroupBy] = createSignal<string>("sample_id");
+
+  // Add a new signal to track if global grouping is enabled
+  const [isGlobalGroupingEnabled, setIsGlobalGroupingEnabled] = createSignal(true);
+
+  // Add a function to get all categorical columns
+  const getCategoricalColumns = createMemo(() => {
+    if (!data()) return ["sample_id"];
+    
+    // Find unique categorical columns across all data categories
+    const allColumns = new Set<string>();
+    
+    // Check each category for categorical columns
+    for (const category of qcCategories) {
+      const categoryData = data()?.[category.key];
+      if (categoryData) {
+        categoryData.columns
+          .filter(col => col.dtype === "categorical")
+          .forEach(col => allColumns.add(col.name));
+      }
+    }
+    
+    // Make sure sample_id is included and first
+    const columnsArray = Array.from(allColumns);
+    if (columnsArray.includes("sample_id")) {
+      // If sample_id exists, put it first
+      return ["sample_id", ...columnsArray.filter(c => c !== "sample_id")];
+    }
+    
+    return columnsArray;
+  });
 
   // read data in memory
   createEffect(async () => {
@@ -247,6 +278,38 @@ const App: Component = () => {
         onChange={setSelectedSamples}
         sampleMetadata={transformSampleMetadata(data())}
       />
+      <div class="mb-4 p-4 bg-gray-50 rounded-md border">
+        <h3 class="text-lg font-medium mb-2">Global Visualization Settings</h3>
+        <div class="flex items-center gap-2 mb-2">
+          <div class="flex items-center">
+            <input 
+              type="checkbox" 
+              id="enable-global-grouping"
+              checked={isGlobalGroupingEnabled()} 
+              onChange={(e) => setIsGlobalGroupingEnabled(e.target.checked)}
+              class="mr-2 h-4 w-4"
+            />
+            <label for="enable-global-grouping" class="w-auto text-sm font-medium">
+              Enable global grouping
+            </label>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="w-24">Group By:</label>
+          <select 
+            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+            value={globalGroupBy()}
+            onChange={(e) => setGlobalGroupBy(e.target.value)}
+            disabled={!isGlobalGroupingEnabled()}
+          >
+            <For each={getCategoricalColumns()}>
+              {(column) => (
+                <option value={column}>{column}</option>
+              )}
+            </For>
+          </select>
+        </div>
+      </div>
       <For each={qcCategories}>
         {(category) => (
           <Show when={(settings[category.key] || []).length > 0}>
@@ -283,13 +346,27 @@ const App: Component = () => {
                             <Match when={settings[category.key][i()].type === "bar"}>
                               <BarPlot
                                 data={filteredData()![category.key]}
-                                filterSettings={settings[category.key][i()]}
+                                filterSettings={{
+                                  ...settings[category.key][i()],
+                                  // 1. For CellRanger metrics, always use sample_id
+                                  // 2. If global grouping is enabled, use the global setting
+                                  // 3. Otherwise use the plot's own setting, or sample_id as fallback
+                                  groupBy: category.key === "metrics_cellranger_stats" 
+                                    ? "sample_id" 
+                                    : (isGlobalGroupingEnabled() ? globalGroupBy() : (settings[category.key][i()].groupBy || "sample_id"))
+                                }}
                               />
                             </Match>
                             <Match when={settings[category.key][i()].type === "histogram"}>
                               <Histogram
                                 data={filteredData()![category.key]}
-                                filterSettings={settings[category.key][i()]}
+                                filterSettings={{
+                                  ...settings[category.key][i()],
+                                  // Same logic as above
+                                  groupBy: category.key === "metrics_cellranger_stats" 
+                                    ? "sample_id" 
+                                    : (isGlobalGroupingEnabled() ? globalGroupBy() : (settings[category.key][i()].groupBy || "sample_id"))
+                                }}
                                 additionalAxes={category.additionalAxes}
                               />
                             </Match>
@@ -300,6 +377,9 @@ const App: Component = () => {
                               setSettings(category.key, i(), produce(fn))
                             }
                             data={filteredData()![category.key]}
+                            globalGroupBy={category.key === "metrics_cellranger_stats" ? undefined : (isGlobalGroupingEnabled() ? globalGroupBy() : undefined)}
+                            forceGroupBy={category.key === "metrics_cellranger_stats" ? "sample_id" : undefined}
+                            isGlobalGroupingEnabled={isGlobalGroupingEnabled()}
                           />
                         </div>
                       )}

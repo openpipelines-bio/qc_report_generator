@@ -17,10 +17,14 @@ import { TextFieldInput, TextFieldLabel } from "./ui/text-field";
 import { NumberField } from "./number-field";
 import { createSignal } from "solid-js";
 
+// Update the props to include the global group by, force group by, and isGlobalGroupingEnabled
 type Props = {
   filterSettings: FilterSettings;
   updateFilterSettings: (fn: (settings: FilterSettings) => FilterSettings) => void;
-  data: RawDataCategory; // Add this new prop to receive the data
+  data: RawDataCategory;
+  globalGroupBy?: string | undefined;
+  forceGroupBy?: string | undefined;
+  isGlobalGroupingEnabled?: boolean; // Add this prop
 }
 
 export function FilterSettingsForm(props: Props) {
@@ -76,29 +80,45 @@ export function FilterSettingsForm(props: Props) {
                   <TextFieldLabel>Max</TextFieldLabel>
                   <TextFieldInput />
                 </NumberField>
-                <Select
-                  value={props.filterSettings.groupBy || "<none>"}
-                  onChange={(value) =>
-                    props.updateFilterSettings((settings) => {
-                      settings.groupBy = value === null || value === "<none>" ? undefined : value;
-                      return settings;
-                    })
-                  }
-                  options={getCategoricalColumns()}
-                  itemComponent={(props) => (
-                    <SelectItem item={props.item}>
-                      {props.item.rawValue}
-                    </SelectItem>
+                <div class="relative">
+                  <Select
+                    value={props.forceGroupBy || (props.isGlobalGroupingEnabled && props.globalGroupBy) || props.filterSettings.groupBy || "sample_id"}
+                    onChange={(value) =>
+                      props.updateFilterSettings((settings) => {
+                        // Convert null to undefined (if value is null), otherwise keep the string value
+                        settings.groupBy = value === null ? undefined : value;
+                        return settings;
+                      })
+                    }
+                    options={getCategoricalColumns()}
+                    itemComponent={(props) => (
+                      <SelectItem item={props.item}>
+                        {props.item.rawValue}
+                      </SelectItem>
+                    )}
+                    disabled={!!(props.forceGroupBy || (props.isGlobalGroupingEnabled && props.globalGroupBy))} // Disable when force group by or global group by is enabled
+                  >
+                    <Label>
+                      Group By {props.forceGroupBy ? "(Fixed)" : (props.isGlobalGroupingEnabled && props.globalGroupBy) ? "(Global)" : ""}
+                    </Label>
+                    <SelectTrigger aria-label="Select grouping column">
+                      <SelectValue<string>>
+                        {(state) => state.selectedOption()}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent />
+                  </Select>
+                  {props.forceGroupBy && (
+                    <div class="text-xs text-gray-500 mt-1">
+                      This plot always uses "{props.forceGroupBy}" grouping
+                    </div>
                   )}
-                >
-                  <Label>Group By</Label>
-                  <SelectTrigger aria-label="Select axis type">
-                    <SelectValue<string>>
-                      {(state) => state.selectedOption()}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent />
-                </Select>
+                  {!props.forceGroupBy && props.isGlobalGroupingEnabled && props.globalGroupBy && (
+                    <div class="text-xs text-gray-500 mt-1">
+                      Global group by setting is active
+                    </div>
+                  )}
+                </div>
                 <NumberField
                   value={props.filterSettings.nBins}
                   onChange={(value) => props.updateFilterSettings((settings) => {
