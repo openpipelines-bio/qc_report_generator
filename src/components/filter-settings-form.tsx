@@ -77,13 +77,17 @@ export function FilterSettingsForm(props: Props) {
     return { affectedCount, totalCells, percent, isHighImpact };
   };
   
+  // Add this helper to determine if we're dealing with a bar plot
+  const isBarPlot = props.filterSettings.type === "bar";
+  const isHistogram = props.filterSettings.type === "histogram";
+  
   return (
     <div>
       <button 
         onClick={() => setIsExpanded(!isExpanded())}
         class="w-full px-4 py-2 text-left text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md flex justify-between items-center mb-2"
       >
-        <span>Visualisation Settings & Filter Thresholds</span>
+        <span>Visualisation Settings {isBarPlot ? "" : "& Filter Thresholds"}</span>
         <span class="transition-transform duration-200" classList={{ "rotate-180": isExpanded() }}>
           ▼
         </span>
@@ -97,32 +101,37 @@ export function FilterSettingsForm(props: Props) {
             </CardHeader>
             <CardContent>
               <div class="grid grid-cols-2 gap-2">
-                <NumberField
-                  value={props.filterSettings.zoomMin}
-                  onChange={(value) => props.updateFilterSettings((settings) => { 
-                    settings.zoomMin = value;
-                    return settings;
-                  })}
-                >
-                  <TextFieldLabel>Min</TextFieldLabel>
-                  <TextFieldInput />
-                </NumberField>
-                <NumberField
-                  value={props.filterSettings.zoomMax}
-                  onChange={(value) => props.updateFilterSettings((settings) => {
-                    settings.zoomMax = value;
-                    return settings;
-                  })}
-                >
-                  <TextFieldLabel>Max</TextFieldLabel>
-                  <TextFieldInput />
-                </NumberField>
+                {/* Only show Min/Max zoom fields for histograms */}
+                {isHistogram && (
+                  <>
+                    <NumberField
+                      value={props.filterSettings.zoomMin}
+                      onChange={(value) => props.updateFilterSettings((settings) => { 
+                        settings.zoomMin = value;
+                        return settings;
+                      })}
+                    >
+                      <TextFieldLabel>Min</TextFieldLabel>
+                      <TextFieldInput />
+                    </NumberField>
+                    <NumberField
+                      value={props.filterSettings.zoomMax}
+                      onChange={(value) => props.updateFilterSettings((settings) => {
+                        settings.zoomMax = value;
+                        return settings;
+                      })}
+                    >
+                      <TextFieldLabel>Max</TextFieldLabel>
+                      <TextFieldInput />
+                    </NumberField>
+                  </>
+                )}
+                
                 <div class="relative">
                   <Select
                     value={props.forceGroupBy || (props.isGlobalGroupingEnabled && props.globalGroupBy) || props.filterSettings.groupBy || "sample_id"}
                     onChange={(value) =>
                       props.updateFilterSettings((settings) => {
-                        // Convert null to undefined (if value is null), otherwise keep the string value
                         settings.groupBy = value === null ? undefined : value;
                         return settings;
                       })
@@ -133,7 +142,7 @@ export function FilterSettingsForm(props: Props) {
                         {props.item.rawValue}
                       </SelectItem>
                     )}
-                    disabled={!!(props.forceGroupBy || (props.isGlobalGroupingEnabled && props.globalGroupBy))} // Disable when force group by or global group by is enabled
+                    disabled={!!(props.forceGroupBy || (props.isGlobalGroupingEnabled && props.globalGroupBy))}
                   >
                     <Label>
                       Group By {props.forceGroupBy ? "(Fixed)" : (props.isGlobalGroupingEnabled && props.globalGroupBy) ? "(Global)" : ""}
@@ -156,17 +165,22 @@ export function FilterSettingsForm(props: Props) {
                     </div>
                   )}
                 </div>
-                <NumberField
-                  value={props.filterSettings.nBins}
-                  onChange={(value) => props.updateFilterSettings((settings) => {
-                    settings.nBins = value || 50;
-                    return settings;
-                  })}
-                >
-                  <TextFieldLabel># Bins</TextFieldLabel>
-                  <TextFieldInput />
-                </NumberField>
                 
+                {/* Only show #Bins for histograms */}
+                {isHistogram && (
+                  <NumberField
+                    value={props.filterSettings.nBins}
+                    onChange={(value) => props.updateFilterSettings((settings) => {
+                      settings.nBins = value || 50;
+                      return settings;
+                    })}
+                  >
+                    <TextFieldLabel># Bins</TextFieldLabel>
+                    <TextFieldInput />
+                  </NumberField>
+                )}
+                
+                {/* Always show X-Axis Scale */}
                 <Select
                   value={props.filterSettings.xAxisType || "linear"}
                   onChange={(value) =>
@@ -191,80 +205,88 @@ export function FilterSettingsForm(props: Props) {
                   <SelectContent />
                 </Select>
                 
-                <Select
-                  value={props.filterSettings.yAxisType || "linear"}
-                  onChange={(value) =>
-                    props.updateFilterSettings((settings) => {
-                      settings.yAxisType = value as "log" | "linear";
-                      return settings;
-                    })
-                  }
-                  options={["linear", "log"]}
-                  itemComponent={(props) => (
-                    <SelectItem item={props.item}>
-                      {props.item.rawValue}
-                    </SelectItem>
-                  )}
-                >
-                  <Label>Y-Axis Scale</Label>
-                  <SelectTrigger aria-label="Select Y-axis scale">
-                    <SelectValue<"linear" | "log">>
-                      {(state) => state.selectedOption()}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent />
-                </Select>
+                {/* Only show Y-Axis Scale for histograms */}
+                {isHistogram && (
+                  <Select
+                    value={props.filterSettings.yAxisType || "linear"}
+                    onChange={(value) =>
+                      props.updateFilterSettings((settings) => {
+                        settings.yAxisType = value as "log" | "linear";
+                        return settings;
+                      })
+                    }
+                    options={["linear", "log"]}
+                    itemComponent={(props) => (
+                      <SelectItem item={props.item}>
+                        {props.item.rawValue}
+                      </SelectItem>
+                    )}
+                  >
+                    <Label>Y-Axis Scale</Label>
+                    <SelectTrigger aria-label="Select Y-axis scale">
+                      <SelectValue<"linear" | "log">>
+                        {(state) => state.selectedOption()}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent />
+                  </Select>
+                )}
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Filter thresholds</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div class="grid grid-cols-2 gap-2">
-                <NumberField
-                  value={props.filterSettings.cutoffMin}
-                  onChange={(value) => {
-                    props.updateFilterSettings((settings) => {
-                      settings.cutoffMin = value;
+          
+          {/* Only show Filter thresholds card for histograms */}
+          {isHistogram && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Filter thresholds</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div class="grid grid-cols-2 gap-2">
+                  <NumberField
+                    value={props.filterSettings.cutoffMin}
+                    onChange={(value) => {
+                      props.updateFilterSettings((settings) => {
+                        settings.cutoffMin = value;
+                        return settings;
+                      });
+                    }}
+                  >
+                    <TextFieldLabel>Min</TextFieldLabel>
+                    <TextFieldInput />
+                  </NumberField>
+                  <NumberField
+                    value={props.filterSettings.cutoffMax}
+                    onChange={(value) => props.updateFilterSettings((settings) => {
+                      settings.cutoffMax = value;
                       return settings;
-                    });
-                  }}
-                >
-                  <TextFieldLabel>Min</TextFieldLabel>
-                  <TextFieldInput />
-                </NumberField>
-                <NumberField
-                  value={props.filterSettings.cutoffMax}
-                  onChange={(value) => props.updateFilterSettings((settings) => {
-                    settings.cutoffMax = value;
-                    return settings;
-                  })}
-                >
-                  <TextFieldLabel>Max</TextFieldLabel>
-                  <TextFieldInput />
-                </NumberField>
-                {/* Add this after the min/max cutoff fields */}
-                {props.filterSettings.type === "histogram" && (props.filterSettings.cutoffMin !== undefined || props.filterSettings.cutoffMax !== undefined) && props.category === 'cell_rna_stats' && (
-                  () => {
-                    const impact = getFilterImpact();
-                    return impact && (
-                      <div class="col-span-2 mt-2 text-sm text-gray-600">
-                        <div class="flex items-center">
-                          <span class="mr-2">Filter impact:</span>
-                          <span class={impact.isHighImpact ? "text-amber-600 font-medium" : ""}>
-                            Removing {impact.affectedCount} of {impact.totalCells} cells ({impact.percent}%)
-                          </span>
-                          {impact.isHighImpact && <span class="text-amber-600 ml-2">⚠️ High impact</span>}
+                    })}
+                  >
+                    <TextFieldLabel>Max</TextFieldLabel>
+                    <TextFieldInput />
+                  </NumberField>
+                  
+                  {/* Keep the filter impact code */}
+                  {props.filterSettings.type === "histogram" && (props.filterSettings.cutoffMin !== undefined || props.filterSettings.cutoffMax !== undefined) && props.category === 'cell_rna_stats' && (
+                    () => {
+                      const impact = getFilterImpact();
+                      return impact && (
+                        <div class="col-span-2 mt-2 text-sm text-gray-600">
+                          <div class="flex items-center">
+                            <span class="mr-2">Filter impact:</span>
+                            <span class={impact.isHighImpact ? "text-amber-600 font-medium" : ""}>
+                              Removing {impact.affectedCount} of {impact.totalCells} cells ({impact.percent}%)
+                            </span>
+                            {impact.isHighImpact && <span class="text-amber-600 ml-2">⚠️ High impact</span>}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  }
-                )()}
-              </div>
-            </CardContent>
-          </Card>
+                      );
+                    }
+                  )()}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
     </div>

@@ -196,8 +196,6 @@ const App: Component = () => {
 
   // Add a new signal to track if global grouping is enabled
   const [isGlobalGroupingEnabled, setIsGlobalGroupingEnabled] = createSignal(true);
-
-  // Add this near your other state variables
   const [filtersApplied, setFiltersApplied] = createSignal(false);
 
   // Add a new state to store the applied filter settings
