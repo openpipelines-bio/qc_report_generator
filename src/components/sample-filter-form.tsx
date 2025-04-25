@@ -47,19 +47,51 @@ export function SampleFilterForm(props: SampleFilterFormProps) {
     <div class="border p-4 rounded-md bg-gray-50 mb-4">
       <div class="flex justify-between items-center mb-4">
         <h3 class="text-lg font-medium">Sample selection</h3>
-        <div class="flex space-x-2">
-          <button 
-            class={`px-3 py-1 text-sm rounded ${viewMode() === 'simple' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
-            onClick={() => setViewMode('simple')}
-          >
-            Simple View
-          </button>
-          <button 
-            class={`px-3 py-1 text-sm rounded ${viewMode() === 'table' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
-            onClick={() => setViewMode('table')}
-          >
-            Table View
-          </button>
+        
+        <div 
+          class="relative rounded-full bg-gray-200 shadow-sm overflow-hidden"
+          style={{ height: "32px", width: "180px" }}
+        >
+          <div 
+            class="absolute bg-white rounded-full shadow transition-transform duration-200"
+            style={{
+              width: "calc(50% - 4px)",
+              height: "calc(100% - 4px)",
+              top: "2px",
+              left: "2px",
+              transform: viewMode() === 'simple' 
+                ? 'translateX(0)' 
+                : 'translateX(calc(100% + 4px))'
+            }}
+          />
+          
+          <div class="absolute inset-0 flex w-full h-full">
+            <div 
+              class="flex items-center justify-center w-1/2 cursor-pointer"
+              onClick={() => setViewMode('simple')}
+            >
+              <span 
+                class={`text-sm font-medium transition-colors duration-200 ${
+                  viewMode() === 'simple' ? 'text-gray-800' : 'text-gray-500'
+                }`}
+              >
+                Simple
+              </span>
+            </div>
+            
+            <div 
+              class="flex items-center justify-center w-1/2 cursor-pointer"
+              onClick={() => setViewMode('table')}
+            >
+              <span 
+                class={`text-sm font-medium transition-colors duration-200 ${
+                  viewMode() === 'table' ? 'text-gray-800' : 'text-gray-500'
+                }`}
+              >
+                Table
+              </span>
+            </div>
+          </div>
         </div>
       </div>
       

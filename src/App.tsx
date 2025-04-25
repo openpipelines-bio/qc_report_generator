@@ -18,7 +18,7 @@ import { DataSummaryTable } from "./components/data-summary-table";
 import { BarPlot } from "./components/barplot";
 import { createMemo } from "solid-js";
 import { SampleFilterForm } from "./components/sample-filter-form";
-import { filterData, calculateQcPassCells } from "./lib/data-filters";
+import { filterData, calculateQcPassCells, getPassingCellIndices } from "./lib/data-filters";
 import { transformSampleMetadata } from "./lib/sample-utils";
 
 type QCCategory = {
@@ -36,7 +36,7 @@ const qcCategories: QCCategory[] = [
     defaultFilters: [],
   },
   {
-    name: "CellRanger Metrics",
+    name: "SampleQC",
     key: "metrics_cellranger_stats",
     additionalAxes: false,
     defaultFilters: [
@@ -250,35 +250,9 @@ const App: Component = () => {
     // Get cell QC filter settings from applied settings, not live settings
     const cellFilters = appliedFilterSettings.cell_rna_stats || [];
     
-    // Get the cell IDs that pass QC filters
+    // Get the cell IDs that pass QC filters using the helper function
     const cellsData = sampleFiltered.cell_rna_stats;
-    const passingCellIndices = new Set<number>();
-    
-    // Start with all cells passing
-    for (let i = 0; i < cellsData.num_rows; i++) {
-      passingCellIndices.add(i);
-    }
-    
-    // Apply each filter
-    for (const filter of cellFilters) {
-      if (filter.cutoffMin !== undefined || filter.cutoffMax !== undefined) {
-        const columnIndex = cellsData.columns.findIndex(col => col.name === filter.field);
-        if (columnIndex !== -1) {
-          const columnData = cellsData.columns[columnIndex].data;
-          
-          // Filter cells based on min/max thresholds
-          for (let i = 0; i < cellsData.num_rows; i++) {
-            if (!passingCellIndices.has(i)) continue; // Skip already filtered
-            
-            const value = columnData[i];
-            if ((filter.cutoffMin !== undefined && value < filter.cutoffMin) || 
-                (filter.cutoffMax !== undefined && value > filter.cutoffMax)) {
-              passingCellIndices.delete(i);
-            }
-          }
-        }
-      }
-    }
+    const passingCellIndices = getPassingCellIndices(cellsData, cellFilters);
     
     // Filter the cell_rna_stats data
     const passingIndices = Array.from(passingCellIndices);
@@ -381,9 +355,47 @@ const App: Component = () => {
         {(category) => (
           <Show when={(settings[category.key] || []).length > 0}>
             <H2>{category.name}</H2>
+            
+            {/* Add descriptive text based on category */}
+            <div class="mb-4 text-gray-700">
+              {category.key === "sample_summary_stats" && (
+                <p>
+                  These metrics provide sample-level quality control measures. Each plot represents data 
+                  aggregated at the sample level and is always grouped by sample ID.
+                </p>
+              )}
+              
+              {category.key === "metrics_cellranger_stats" && (
+                <p>
+                  These metrics are provided by CellRanger and show sample-level sequencing statistics. 
+                  All CellRanger metrics are always grouped by sample ID regardless of global visualization settings.
+                </p>
+              )}
+              
+              {category.key === "cell_rna_stats" && (
+                <p>
+                  These metrics provide cell-level quality control measures. You can use the Global Visualization 
+                  Settings above to group these metrics by different categorical variables (e.g., sample_id, 
+                  predicted cell type). These groupings allow you to identify quality differences across 
+                  biological or technical groups.
+                </p>
+              )}
+            </div>
+            
             <div class="grid grid-cols-1 gap-4">
               <For each={settings[category.key]}>
                 {(_, i) => {
+                  // Extract the groupBy logic into a reactive memo
+                  const currentFilterGroupBy = createMemo(() => {
+                    if (category.key === "metrics_cellranger_stats") {
+                      return "sample_id"; // CellRanger metrics always use sample_id
+                    } else if (isGlobalGroupingEnabled()) {
+                      return globalGroupBy(); // Use global setting when enabled
+                    } else {
+                      return settings[category.key][i()].groupBy || "sample_id"; // Use plot's own setting or default
+                    }
+                  });
+                  
                   const [isExpanded, setIsExpanded] = createSignal(true); // Start expanded
                   
                   return (
@@ -415,12 +427,7 @@ const App: Component = () => {
                                 data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
                                 filterSettings={{
                                   ...settings[category.key][i()],
-                                  // 1. For CellRanger metrics, always use sample_id
-                                  // 2. If global grouping is enabled, use the global setting
-                                  // 3. Otherwise use the plot's own setting, or sample_id as fallback
-                                  groupBy: category.key === "metrics_cellranger_stats" 
-                                    ? "sample_id" 
-                                    : (isGlobalGroupingEnabled() ? globalGroupBy() : (settings[category.key][i()].groupBy || "sample_id"))
+                                  groupBy: currentFilterGroupBy() // Use the extracted logic
                                 }}
                               />
                             </Match>
@@ -429,9 +436,7 @@ const App: Component = () => {
                                 data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
                                 filterSettings={{
                                   ...settings[category.key][i()],
-                                  groupBy: category.key === "metrics_cellranger_stats" 
-                                    ? "sample_id" 
-                                    : (isGlobalGroupingEnabled() ? globalGroupBy() : (settings[category.key][i()].groupBy || "sample_id"))
+                                  groupBy: currentFilterGroupBy() // Use the extracted logic
                                 }}
                                 additionalAxes={category.additionalAxes}
                               />

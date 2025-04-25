@@ -1,4 +1,4 @@
-import { RawData } from "../types";
+import { RawData, FilterSettings } from "../types";
 
 export function filterData(rawData: RawData | undefined, samples: string[]): RawData | undefined {
   if (!rawData || samples.length === 0) return rawData;
@@ -95,4 +95,36 @@ export function calculateQcPassCells(data: RawData | undefined, cellRnaFilters: 
   
   // Count cells passing all filters
   return passFilter.filter(Boolean).length;
+}
+
+export function getPassingCellIndices(cellsData: any, cellFilters: FilterSettings[]): Set<number> {
+  const passingCellIndices = new Set<number>();
+  
+  // Start with all cells passing
+  for (let i = 0; i < cellsData.num_rows; i++) {
+    passingCellIndices.add(i);
+  }
+  
+  // Apply each filter
+  for (const filter of cellFilters) {
+    if (filter.cutoffMin !== undefined || filter.cutoffMax !== undefined) {
+      const columnIndex: number = cellsData.columns.findIndex((col: { name: string }) => col.name === filter.field);
+      if (columnIndex !== -1) {
+        const columnData = cellsData.columns[columnIndex].data;
+        
+        // Filter cells based on min/max thresholds
+        for (let i = 0; i < cellsData.num_rows; i++) {
+          if (!passingCellIndices.has(i)) continue; // Skip already filtered
+          
+          const value = columnData[i];
+          if ((filter.cutoffMin !== undefined && value < filter.cutoffMin) || 
+              (filter.cutoffMax !== undefined && value > filter.cutoffMax)) {
+            passingCellIndices.delete(i);
+          }
+        }
+      }
+    }
+  }
+  
+  return passingCellIndices;
 }
