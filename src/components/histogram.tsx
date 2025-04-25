@@ -238,16 +238,19 @@ function histogramLayout(props: {
     : undefined;
     
   if (groupColumn && props.additionalAxes) {
+    // Get only the sample IDs that actually exist in the filtered data
+    // This is the key change - we're using the actual data from the filtered dataset
+    const actualValues = groupColumn.data as number[];
+    const uniqueIndices = Array.from(new Set(actualValues)).sort((a, b) => a - b);
     
-    // Check if categories exist and create default if missing
-    const uniqueValues = Array.from(new Set(groupColumn.data as number[]));
-    const groupNames = groupColumn.categories && groupColumn.categories.length > 0 
-      ? groupColumn.categories 
-      : uniqueValues.map(v => `Sample ${v}`);
+    // Map these to category names, ensuring we only include samples that exist in the filtered data
+    const groupNames = groupColumn.categories 
+      ? uniqueIndices.map(idx => groupColumn.categories![idx])
+      : uniqueIndices.map(v => `Sample ${v}`);
       
-    console.log("Using group names:", groupNames);
+    console.log("Using filtered group names:", groupNames);
     
-    // Continue with rest of function using groupNames instead of groupColumn.categories
+    // Continue with rest of function using filtered groupNames
     const totalPlots = groupNames.length + 1;
     plotHeight = 1.0 / totalPlots;
     
@@ -279,13 +282,13 @@ function histogramLayout(props: {
     };
     
     // Adjust height based on number of plots
-    height = 75 * (groupNames.length + 1);
+    height = Math.max(200, 75 * (groupNames.length + 1));
   }
 
   // Add the "Total" annotation for the main plot
   annotations.push(createAxisAnnotation("Total", 1.0 - plotHeight/2));
 
-  // Return the complete layout configuration
+  // Rest of the function remains the same
   return {
     xaxis: {
       title: props.xTitle,

@@ -44,3 +44,25 @@ export type BinSettings = {
     count_qc_fail: number;
   }[];
 };
+
+// New type definitions
+export type QCCategory = {
+  name: string;
+  key: keyof RawData;
+  additionalAxes: boolean;
+  defaultFilters: FilterSettings[];
+};
+
+export type Settings = {
+  [key in keyof RawData]: FilterSettings[];
+};
+
+export type SampleMetadata = Record<string, {
+  rna_num_barcodes?: number;
+  rna_num_barcodes_filtered?: number;
+  rna_sum_total_counts?: number;
+  rna_median_total_counts?: number;
+  rna_overall_num_nonzero_vars?: number;
+  rna_median_num_nonzero_vars?: number;
+  [key: string]: any;
+}>;
