@@ -309,6 +309,76 @@ const App: Component = () => {
     return calculateQcPassCells(filteredData(), settings.cell_rna_stats || []);
   });
 
+  // Export current filter settings as YAML using hybrid approach
+  const exportFiltersAsYaml = async () => {
+    // Get a clean copy of settings
+    const exportSettings = JSON.parse(JSON.stringify(settings));
+    
+    // Create flat YAML with prefixed field names and keep the header as comments
+    let yamlContent = "# OpenPipelines Ingestion QC Filter Settings\n";
+    yamlContent += "# Generated on " + new Date().toISOString() + "\n\n";
+    
+    // Iterate through all categories and filters
+    for (const categoryKey in exportSettings) {
+      exportSettings[categoryKey].forEach((filter: FilterSettings) => {
+        // Add min threshold if it exists
+        if (filter.cutoffMin !== undefined) {
+          yamlContent += `min_${filter.field}: ${filter.cutoffMin}\n`;
+        }
+        
+        // Add max threshold if it exists
+        if (filter.cutoffMax !== undefined) {
+          yamlContent += `max_${filter.field}: ${filter.cutoffMax}\n`;
+        }
+      });
+    }
+    
+    // Create the blob with the YAML content
+    const blob = new Blob([yamlContent], { type: 'text/yaml' });
+    
+    try {
+      // Check if the File System Access API is available
+      if ('showSaveFilePicker' in window) {
+        // Use the modern File System Access API
+        const options = {
+          types: [{
+            description: 'YAML files',
+            accept: { 'text/yaml': ['.yaml'] }
+          }],
+          suggestedName: 'qc_filters.yaml'
+        };
+        
+        // @ts-ignore - TypeScript might not recognize this API yet
+        const fileHandle = await window.showSaveFilePicker(options);
+        const writable = await fileHandle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+      } else {
+        // Fall back to the traditional approach
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'qc_filters.yaml'; // Default filename
+        
+        // Add to the document and click
+        document.body.appendChild(link);
+        link.click();
+        
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }, 100);
+      }
+    } catch (err) {
+      console.error("Error saving file:", err);
+      // If the user canceled the save dialog, don't show an error
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        alert("Failed to save file. " + err);
+      }
+    }
+  };
+
   // page layout
   return (
     <div class="container mx-a space-y-2">
@@ -490,6 +560,13 @@ const App: Component = () => {
               class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
             >
               Reset to Default View
+            </button>
+            
+            <button 
+              onClick={exportFiltersAsYaml}
+              class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+            >
+              Export Filters as YAML
             </button>
             
             {filtersApplied() && (
