@@ -72,11 +72,22 @@ function barLayout(props: {
 }): Partial<Layout> {
   const layout: Partial<Layout> = {
     xaxis: {
-      title: props.xTitle,
       type: props.xType,
+      titlefont: {
+        size: 14,  // Increased from 12 to 16 for better visibility
+      },
+      automargin: true,
+      title: {
+        text: props.xTitle,
+        standoff: 15, // Increased standoff to accommodate larger font
+      },
     },
     yaxis: {
-      type: "category"
+      type: "category",
+      automargin: true,  // Automatically adjust margins to fit all labels
+      showticklabels: true,  // Ensure all tick labels are shown
+      tickmode: "linear",  // Use all categories as ticks
+      dtick: 1,  // Show every tick
     },
     shapes: cutoffShape("Min", props.minCutoff).concat(
       cutoffShape("Max", props.maxCutoff),
@@ -86,6 +97,7 @@ function barLayout(props: {
       l: 200,
       t: 10,
       r: 10,
+      b: 60, // Slightly increased bottom margin to fit larger title
     },
   };
 
@@ -93,22 +105,31 @@ function barLayout(props: {
 }
 
 export function BarPlot(props: Props) {
-  return <Plot
-    data={barData({
-      data: props.data,
-      valueName: props.filterSettings.field,
-      groupName: props.filterSettings.groupBy,
-      zoomMin: props.filterSettings.zoomMin,
-      zoomMax: props.filterSettings.zoomMax,
-    })}
-    layout={barLayout({
-      data: props.data,
-      xTitle: props.filterSettings.label,
-      minCutoff: props.filterSettings.cutoffMin,
-      maxCutoff: props.filterSettings.cutoffMax,
-      xType: props.filterSettings.xAxisType || "linear",
-    })}
-    config={plotlyConfig()}
-    useResizeHandler={true}
-  />;
+  // Calculate height based on number of samples - minimum 400px, plus 20px per sample
+  const dataLength = props.data.num_rows;
+  const dynamicHeight = Math.max(400, dataLength * 20);
+  
+  return (
+    <div style={{ height: `${dynamicHeight}px`, width: "100%" }}>
+      <Plot
+        data={barData({
+          data: props.data,
+          valueName: props.filterSettings.field,
+          groupName: props.filterSettings.groupBy,
+          zoomMin: props.filterSettings.zoomMin,
+          zoomMax: props.filterSettings.zoomMax,
+        })}
+        layout={barLayout({
+          data: props.data,
+          xTitle: props.filterSettings.label,
+          minCutoff: props.filterSettings.cutoffMin,
+          maxCutoff: props.filterSettings.cutoffMax,
+          xType: props.filterSettings.xAxisType || "linear",
+        })}
+        config={plotlyConfig()}
+        useResizeHandler={true}
+        style={{ width: "100%", height: "100%" }}
+      />
+    </div>
+  );
 }
