@@ -295,6 +295,7 @@ function histogramLayout(props: {
       type: props.xType,
       fixedrange: true,
       automargin: true,
+      titlefont: { size: 14 },
     },
     yaxis: {
       side: "left" as const,
