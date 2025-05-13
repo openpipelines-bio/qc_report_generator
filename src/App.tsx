@@ -8,10 +8,10 @@ import {
   type Component,
 } from "solid-js";
 import { createStore, produce } from "solid-js/store";
-import { FilterSettings, QCCategory, RawData } from "./types";
+import { DocumentDescription, FilterSettings, QCCategory, RawData } from "./types";
 import * as _ from "lodash";
 import { H1, H2, H3 } from "./components/heading";
-import { getData, getQCCategories } from "./lib/get-data";
+import { getData, getDocumentDescription } from "./lib/get-data";
 import { Histogram } from "./components/histogram";
 import { FilterSettingsForm } from "./components/filter-settings-form";
 import { DataSummaryTable } from "./components/data-summary-table";
@@ -23,7 +23,7 @@ import { transformSampleMetadata } from "./lib/sample-utils";
 
 
 const App: Component = () => {
-  const [qcCategories, setQcCategories] = createSignal<QCCategory[]>([]);
+  const [documentDescription, setDocumentDescription] = createSignal<DocumentDescription>({categories: []});
   const [data, setData] = createSignal<RawData>();
   const [selectedSamples, setSelectedSamples] = createSignal<string[]>([]);
   const [globalGroupBy, setGlobalGroupBy] = createSignal<string>("sample_id");
@@ -38,7 +38,7 @@ const App: Component = () => {
   // read data in memory
   createEffect(async () => {
     console.log("reading qc categories");
-    setQcCategories(await getQCCategories());
+    setDocumentDescription(await getDocumentDescription());
 
     console.log("reading data");
     setData(await getData());
@@ -52,7 +52,7 @@ const App: Component = () => {
     const allColumns = new Set<string>();
     
     // Check each category for categorical columns
-    for (const category of qcCategories()) {
+    for (const category of documentDescription().categories) {
       const categoryData = data()?.[category.key];
       if (categoryData) {
         categoryData.columns
@@ -122,7 +122,7 @@ const App: Component = () => {
   );
 
   createEffect(() => {
-    for (const category of qcCategories()) {
+    for (const category of documentDescription().categories) {
       console.log(`setting ${category.name} filters`);
 
       const columnNames =
@@ -258,7 +258,7 @@ const App: Component = () => {
           </select>
         </div>
       </div>
-      <For each={qcCategories()}>
+      <For each={documentDescription().categories}>
         {(category) => (
           <Show when={(settings[category.key] || []).length > 0}>
             <H2>{category.name}</H2>
@@ -420,7 +420,7 @@ const App: Component = () => {
           This overview is meant to give a quick glance at the data that has
           been loaded.
         </p>
-        <For each={qcCategories()}>
+        <For each={documentDescription().categories}>
           {(category) => (
             <div>
               <H3>{category.name}</H3>

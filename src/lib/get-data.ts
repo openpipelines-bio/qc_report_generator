@@ -1,20 +1,24 @@
 import { decode } from "@msgpack/msgpack";
 import _ from "lodash";
 import pako from "pako";
-import { QCCategory, RawData } from "../types";
+import { DocumentDescription, RawData } from "../types";
 
-export async function getData(): Promise<RawData> {
-  const compressedData = await import("~/data/dataset");
+function decompress<T>(compressed: string): T {
   const compressedVector = new Uint8Array(
-    atob(compressedData.compressed_data)
+    atob(compressed)
       .split("")
       .map((char) => char.charCodeAt(0)),
   );
   const decompressed = pako.ungzip(compressedVector);
-  return decode(decompressed) as RawData;
+  return decode(decompressed) as T;
 }
 
-export async function getQCCategories(): Promise<QCCategory[]> {
-  const out = await import("~/data/columns.json") as QCCategory[];
-  return out
+export async function getData(): Promise<RawData> {
+  const data = await import("~/data/imm_40");
+  return decompress<RawData>(data.compressed_data)
+}
+
+export async function getDocumentDescription(): Promise<DocumentDescription> {
+  const data = await import("~/data/columns_cellranger")
+  return decompress<DocumentDescription>(data.compressed_data);
 }

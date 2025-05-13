@@ -1,7 +1,6 @@
 import fs from "fs";
 import pako from "pako";
 import { encode } from "@msgpack/msgpack";
-import path from "path";
 
 // Get input and output file paths from command line arguments
 const inputFilePath = process.argv[2];

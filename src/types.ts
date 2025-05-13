@@ -46,6 +46,10 @@ export type BinSettings = {
 };
 
 // New type definitions
+export type DocumentDescription = {
+  categories: QCCategory[];
+}
+
 export type QCCategory = {
   name: string;
   key: keyof RawData;
