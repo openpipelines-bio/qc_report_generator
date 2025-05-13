@@ -14,7 +14,7 @@ function decompress<T>(compressed: string): T {
 }
 
 export async function getData(): Promise<RawData> {
-  const data = await import("~/data/imm_40");
+  const data = await import("~/data/dataset");
   return decompress<RawData>(data.compressed_data)
 }
 
