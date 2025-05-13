@@ -46,7 +46,7 @@ export type BinSettings = {
 };
 
 // New type definitions
-export type DocumentDescription = {
+export type ReportStructure = {
   categories: QCCategory[];
 }
 

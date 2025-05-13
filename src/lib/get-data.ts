@@ -1,7 +1,7 @@
 import { decode } from "@msgpack/msgpack";
 import _ from "lodash";
 import pako from "pako";
-import { DocumentDescription, RawData } from "../types";
+import { ReportStructure, RawData } from "../types";
 
 function decompress<T>(compressed: string): T {
   const compressedVector = new Uint8Array(
@@ -18,7 +18,7 @@ export async function getData(): Promise<RawData> {
   return decompress<RawData>(data.compressed_data)
 }
 
-export async function getDocumentDescription(): Promise<DocumentDescription> {
-  const data = await import("~/data/columns_cellranger")
-  return decompress<DocumentDescription>(data.compressed_data);
+export async function getReportStructure(): Promise<ReportStructure> {
+  const data = await import("~/data/report_structure")
+  return decompress<ReportStructure>(data.compressed_data);
 }
