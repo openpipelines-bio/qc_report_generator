@@ -8,7 +8,7 @@ import {
   type Component,
 } from "solid-js";
 import { createStore, produce } from "solid-js/store";
-import { FilterSettings, RawData } from "./types";
+import { FilterSettings, RawData, RawDataCategory } from "./types";
 import * as _ from "lodash";
 import { H1, H2, H3 } from "./components/heading";
 import { getData } from "./lib/decompress";
@@ -21,6 +21,14 @@ import { createMemo } from "solid-js";
 import { SampleFilterForm } from "./components/sample-filter-form";
 import { filterData, calculateQcPassCells, getPassingCellIndices } from "./lib/data-filters";
 import { transformSampleMetadata } from "./lib/sample-utils";
+
+// Helper function to check if the data has spatial coordinates
+function hasSpatialCoordinates(data?: RawDataCategory) {
+  if (!data) return false;
+  const hasX = data.columns.some(c => c.name === "spatial_coord_x");
+  const hasY = data.columns.some(c => c.name === "spatial_coord_y");
+  return hasX && hasY;
+}
 
 type QCCategory = {
   name: string;
@@ -480,12 +488,65 @@ const App: Component = () => {
                   
                   return (
                     <div>
-                      <H3>{settings[category.key][i()].label}</H3>
-                      {/* Add description display here */}
+                      <div class="flex justify-between items-center mb-2">
+                        <H3>{settings[category.key][i()].label}</H3>
+                        
+                        {/* Add the visualization toggle in the top-right corner */}
+                        <Show when={category.key === "cell_rna_stats" && 
+                                   settings[category.key][i()].type === "histogram" && 
+                                   hasSpatialCoordinates(data()?.cell_rna_stats)}>
+                          <div 
+                            class="relative rounded-full bg-gray-200 shadow-sm overflow-hidden"
+                            style={{ height: "32px", width: "180px" }}
+                          >
+                            <div 
+                              class="absolute bg-white rounded-full shadow transition-transform duration-200"
+                              style={{
+                                width: "calc(50% - 4px)",
+                                height: "calc(100% - 4px)",
+                                top: "2px",
+                                left: "2px",
+                                transform: settings[category.key][i()].visualizationType !== 'spatial' 
+                                  ? 'translateX(0)' 
+                                  : 'translateX(calc(100% + 4px))'
+                              }}
+                            />
+                            
+                            <div class="absolute inset-0 flex w-full h-full">
+                              <div 
+                                class="flex items-center justify-center w-1/2 cursor-pointer"
+                                onClick={() => setSettings(category.key, i(), { ...settings[category.key][i()], visualizationType: 'histogram' })}
+                              >
+                                <span 
+                                  class={`text-sm font-medium transition-colors duration-200 ${
+                                    settings[category.key][i()].visualizationType !== 'spatial' ? 'text-gray-800' : 'text-gray-500'
+                                  }`}
+                                >
+                                  Histogram
+                                </span>
+                              </div>
+                              
+                              <div 
+                                class="flex items-center justify-center w-1/2 cursor-pointer"
+                                onClick={() => setSettings(category.key, i(), { ...settings[category.key][i()], visualizationType: 'spatial' })}
+                              >
+                                <span 
+                                  class={`text-sm font-medium transition-colors duration-200 ${
+                                    settings[category.key][i()].visualizationType === 'spatial' ? 'text-gray-800' : 'text-gray-500'
+                                  }`}
+                                >
+                                  Spatial
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </Show>
+                      </div>
+                      
                       <Show when={settings[category.key][i()].description}>
                         <p class="text-gray-600 text-sm mb-2">{settings[category.key][i()].description}</p>
                       </Show>
-                      
+
                       <button 
                         onClick={() => setIsExpanded(!isExpanded())}
                         class="w-full px-4 py-2 text-left text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md flex justify-between items-center mb-2"

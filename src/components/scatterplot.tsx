@@ -567,22 +567,25 @@ export function ScatterPlot(props: Props) {
     
     // For grouped spatial plots, customize colorbar position
     if (isSpatialPlot() && props.filterSettings.groupBy && props.additionalAxes) {
+      // Create a properly typed annotation
+      const colorbarAnnotation: Partial<Layout["annotations"][0]> = {
+        text: getColorFieldLabel(),
+        font: { size: 14, color: '#333' },
+        showarrow: false,
+        xref: 'paper' as 'paper',  // Add type assertion
+        yref: 'paper' as 'paper',  // Add type assertion
+        x: 1.02,
+        y: 1,
+        xanchor: 'left' as 'left',  // Add type assertion
+        yanchor: 'top' as 'top'     // Add type assertion
+      };
+      
       return {
         ...baseLayout,
-        // Add a title for the colorbar at the top right
+        // Add the annotation correctly typed
         annotations: [
           ...(baseLayout.annotations || []),
-          {
-            text: getColorFieldLabel(),
-            font: { size: 14, color: '#333' },
-            showarrow: false,
-            xref: 'paper',
-            yref: 'paper',
-            x: 1.02,
-            y: 1,
-            xanchor: 'left',
-            yanchor: 'top'
-          }
+          colorbarAnnotation
         ]
       };
     }

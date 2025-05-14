@@ -86,21 +86,9 @@ export function FilterSettingsForm(props: Props) {
     return { affectedCount, totalCells, percent, isHighImpact };
   };
   
-  // Update the toggle visualization function to handle just histogram and spatial
-  const toggleVisualization = (type: 'histogram' | 'spatial') => {
-    props.updateFilterSettings((settings) => {
-      settings.visualizationType = type;
-      return settings;
-    });
-  };
-  
   // Update these variable definitions
   const isBarPlot = props.filterSettings.type === "bar";
   const isHistogram = (props.filterSettings.type === "histogram" || props.filterSettings.visualizationType === "histogram");
-  const showVisTypeToggle = props.category === "cell_rna_stats" && props.filterSettings.type === "histogram" && hasSpatialCoordinates();
-  
-  // Current visualization type with histogram as fallback
-  const currentVisType = () => props.filterSettings.visualizationType || "histogram";
   
   return (
     <div>
@@ -116,57 +104,6 @@ export function FilterSettingsForm(props: Props) {
       
       {isExpanded() && (
         <div class="flex flex-col gap-4">
-          {/* Add visualization toggle for cell_rna_stats */}
-          {showVisTypeToggle && (
-            <div class="flex justify-center mb-2">
-              <div 
-                class="relative rounded-full bg-gray-200 shadow-sm overflow-hidden"
-                style={{ height: "32px", width: "180px" }} // Adjusted width for 2 items
-              >
-                <div 
-                  class="absolute bg-white rounded-full shadow transition-transform duration-200"
-                  style={{
-                    width: "calc(50% - 4px)", // 50% for 2 items
-                    height: "calc(100% - 4px)",
-                    top: "2px",
-                    left: "2px",
-                    transform: currentVisType() === 'histogram' 
-                      ? 'translateX(0)' 
-                      : 'translateX(calc(100% + 4px))'
-                  }}
-                />
-                
-                <div class="absolute inset-0 flex w-full h-full">
-                  <div 
-                    class="flex items-center justify-center w-1/2 cursor-pointer"
-                    onClick={() => toggleVisualization('histogram')}
-                  >
-                    <span 
-                      class={`text-sm font-medium transition-colors duration-200 ${
-                        currentVisType() === 'histogram' ? 'text-gray-800' : 'text-gray-500'
-                      }`}
-                    >
-                      Histogram
-                    </span>
-                  </div>
-                  
-                  <div 
-                    class="flex items-center justify-center w-1/2 cursor-pointer"
-                    onClick={() => toggleVisualization('spatial')}
-                  >
-                    <span 
-                      class={`text-sm font-medium transition-colors duration-200 ${
-                        currentVisType() === 'spatial' ? 'text-gray-800' : 'text-gray-500'
-                      }`}
-                    >
-                      Spatial
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           <div class="flex flex-row gap-2">
             <Card>
               <CardHeader>
