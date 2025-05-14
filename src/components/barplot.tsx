@@ -121,7 +121,7 @@ export function BarPlot(props: Props) {
         })}
         layout={barLayout({
           data: props.data,
-          xTitle: props.filterSettings.label,
+          xTitle: props.filterSettings.label || props.filterSettings.field,
           minCutoff: props.filterSettings.cutoffMin,
           maxCutoff: props.filterSettings.cutoffMax,
           xType: props.filterSettings.xAxisType || "linear",

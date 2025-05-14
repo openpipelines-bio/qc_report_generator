@@ -15,20 +15,28 @@ export type RawData = {
   [key: string]: RawDataCategory;
 };
 
-export type FilterSettings = {
-  type: "bar" | "histogram";
+export interface FilterSettings {
+  type: "histogram" | "bar" | "scatter";
+  visualizationType?: "histogram" | "spatial";  // Only histogram and spatial
   field: string;
-  label: string;
+  label?: string;
+  // yField can still stay as it might be used by the scatterplot component
+  yField?: string;
+  yLabel?: string;
   description?: string;
   cutoffMin?: number;
   cutoffMax?: number;
+  cutoffMinY?: number;
+  cutoffMaxY?: number;
   zoomMin?: number;
   zoomMax?: number;
-  nBins: number;
-  xAxisType?: "log" | "linear";
-  yAxisType?: "log" | "linear";
+  zoomMinY?: number;
+  zoomMaxY?: number;
+  nBins?: number;
   groupBy?: string;
-};
+  xAxisType?: "linear" | "log";
+  yAxisType?: "linear" | "log";
+}
 
 export type BinSettings = {
   discrete: boolean;
