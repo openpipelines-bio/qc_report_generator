@@ -14,12 +14,12 @@ function decompress<T>(compressed: string): T {
 }
 
 export async function getData(): Promise<RawData> {
-  const data = await import("~/data/dataset_cb_imm");
+  const data = await import("~/data/dataset");
   return decompress<RawData>(data.compressed_data)
 }
 
 export async function getReportStructure(): Promise<ReportStructure> {
-  const data = await import("~/data/report_structure_cellranger");
+  const data = await import("~/data/report_structure");
   const reportStructure = decompress<ReportStructure>(data.compressed_data);
   
   // Convert nulls to undefined for cutoffs and zoom levels
