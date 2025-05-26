@@ -2,6 +2,18 @@
 
 This is a project to visualize the ingestion qc data.
 
+## Usage
+
+```bash
+pnpm install
+
+pnpm run compress_data path/to/report_structure.json src/data/report_structure.ts
+
+pnpm run compress_data path/to/dataset.json src/data/dataset.ts
+
+pnpm run build
+```
+
 ## Available Scripts
 
 In the project directory, you can run:
