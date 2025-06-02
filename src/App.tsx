@@ -8,10 +8,10 @@ import {
   type Component,
 } from "solid-js";
 import { createStore, produce } from "solid-js/store";
-import { FilterSettings, RawData, RawDataCategory } from "./types";
+import { ReportStructure, FilterSettings, RawData } from "./types";
 import * as _ from "lodash";
 import { H1, H2, H3 } from "./components/heading";
-import { getData } from "./lib/decompress";
+import { getData, getReportStructure } from "./lib/get-data";
 import { Histogram } from "./components/histogram";
 import { FilterSettingsForm } from "./components/filter-settings-form";
 import { DataSummaryTable } from "./components/data-summary-table";
@@ -30,184 +30,9 @@ function hasSpatialCoordinates(data?: RawDataCategory) {
   return hasX && hasY;
 }
 
-type QCCategory = {
-  name: string;
-  key: keyof RawData;
-  additionalAxes: boolean;
-  defaultFilters: FilterSettings[];
-};
-
-const qcCategories: QCCategory[] = [
-  {
-    name: "Sample QC",
-    key: "sample_summary_stats",
-    additionalAxes: false,
-    defaultFilters: [],
-  },
-  // {
-  //   name: "SampleQC",
-  //   key: "metrics_cellranger_stats",
-  //   additionalAxes: false,
-  //   defaultFilters: [
-  //     {
-  //       type: "bar",
-  //       field: "Number_of_reads_in_the_library",
-  //       label: "Number of reads per library",
-  //       description: "Sequencing depth per sample. Higher values generally indicate more comprehensive cell profiling.",
-  //       nBins: 10,
-  //       groupBy: "sample_id",
-  //       xAxisType: "linear",
-  //       yAxisType: "linear",
-  //     },
-  //     {
-  //       type: "bar",
-  //       field: "Confidently_mapped_reads_in_cells",
-  //       label: "Confidently mapped reads in cells",
-  //       description: "Number of reads that were mapped unambiguously to the reference genome within cell-containing droplets.",
-  //       groupBy: "sample_id",
-  //       nBins: 10,
-  //       yAxisType: "linear",
-  //     },
-  //     {
-  //       type: "bar",
-  //       field: "Estimated_number_of_cells",
-  //       label: "Estimated number of cells",
-  //       description: "CellRanger's estimate of the number of cells per sample based on the UMI count distribution.",
-  //       groupBy: "sample_id",
-  //       nBins: 10,
-  //       yAxisType: "linear",
-  //     },
-  //     {
-  //       type: "bar",
-  //       field: "Sequencing_saturation",
-  //       label: "Sequencing saturation",
-  //       description: "Fraction of reads that are duplicates of existing UMIs. Higher values suggest deeper sequencing coverage.",
-  //       groupBy: "sample_id",
-  //       nBins: 10,
-  //       yAxisType: "linear",
-  //     },
-  //   ],
-  // },
-  {
-    name: "Cell RNA QC",
-    key: "cell_rna_stats",
-    additionalAxes: true,
-    defaultFilters: [
-      {
-        type: "histogram",
-        visualizationType: "histogram",
-        field: "total_counts",
-        label: "Total UMI per cell",
-        description: "Total number of RNA molecules detected per cell. Low values typically indicate empty droplets or low-quality cells that should be filtered out.",
-        cutoffMin: undefined,
-        cutoffMax: undefined,
-        zoomMax: undefined,
-        nBins: 50,
-        groupBy: "sample_id",
-        yAxisType: "linear",
-      },
-      {
-        type: "histogram",
-        visualizationType: "histogram",
-        field: "num_nonzero_vars",
-        label: "Number of non-zero genes per cell",
-        description: "Count of unique genes detected in each cell. Low gene counts often indicate poor-quality cells.",
-        cutoffMin: undefined,
-        cutoffMax: undefined,
-        zoomMax: undefined,
-        nBins: 50,
-        groupBy: "sample_id",
-        yAxisType: "linear",
-      },
-      {
-        type: "histogram",
-        visualizationType: "histogram",
-        field: "fraction_mitochondrial",
-        label: "Fraction UMI of mitochondrial genes per cell",
-        description: "Proportion of cell's RNA from mitochondrial genes.",
-        cutoffMin: undefined,
-        cutoffMax: undefined,
-        nBins: 50,
-        groupBy: "sample_id",
-        yAxisType: "linear",
-      },
-      {
-        type: "histogram",
-        visualizationType: "histogram",
-        field: "fraction_ribosomal",
-        label: "Fraction UMI of ribosomal genes per cell",
-        description: "Proportion of cell's RNA from ribosomal protein genes. Extreme values may indicate stress responses or cell cycle abnormalities.",
-        cutoffMin: undefined,
-        cutoffMax: undefined,
-        nBins: 50,
-        groupBy: "sample_id",
-        yAxisType: "linear",
-      },
-      {
-        type: "histogram",
-        visualizationType: "histogram",
-        field: "pct_of_counts_in_top_50_vars",
-        label: "Fraction UMI in top 50 genes per cell",
-        description: "Proportion of RNA molecules from the 50 most-expressed genes in each cell.",
-        cutoffMin: undefined,
-        cutoffMax: undefined,
-        nBins: 50,
-        groupBy: "sample_id",
-        yAxisType: "linear",
-      },
-      {
-        type: "histogram",
-        visualizationType: "histogram",
-        field: "cellbender_cell_probability",
-        label: "CellBender cell probability",
-        description: "CellBender's statistical confidence (0-1) that a barcode represents a real cell, with higher values indicating stronger confidence.",
-        cutoffMin: undefined,
-        cutoffMax: undefined,
-        nBins: 50,
-        groupBy: "sample_id",
-        yAxisType: "linear",
-      },
-      {
-        type: "histogram",
-        visualizationType: "histogram",
-        field: "cellbender_background_fraction",
-        label: "CellBender background fraction",
-        description: "Estimated percentage of each cell's RNA that comes from the ambient solution rather than the cell itself.",
-        cutoffMin: undefined,
-        cutoffMax: undefined,
-        nBins: 50,
-        groupBy: "sample_id",
-        yAxisType: "linear",
-      },
-      {
-        type: "histogram",
-        visualizationType: "histogram",
-        field: "cellbender_cell_size",
-        label: "CellBender cell size",
-        description: "CellBender's estimate of the true number of RNA molecules in each cell after removing ambient contamination. Reflects actual cell RNA content rather than raw UMI counts.",
-        cutoffMin: undefined,
-        cutoffMax: undefined,
-        nBins: 50,
-        groupBy: "sample_id",
-        yAxisType: "linear",
-      },
-      {
-        type: "histogram",
-        visualizationType: "histogram",
-        field: "cellbender_droplet_efficiency",
-        label: "CellBender droplet efficiency",
-        description: "CellBender's estimate of how efficiently each droplet captured RNA molecules. Higher values indicate more reliable RNA sampling within individual droplets.",
-        cutoffMin: undefined,
-        cutoffMax: undefined,
-        nBins: 50,
-        groupBy: "sample_id",
-        yAxisType: "linear",
-      }
-    ],
-  },
-];
 
 const App: Component = () => {
+  const [reportStructure, setReportStructure] = createSignal<ReportStructure>({categories: []});
   const [data, setData] = createSignal<RawData>();
   const [selectedSamples, setSelectedSamples] = createSignal<string[]>([]);
   const [globalGroupBy, setGlobalGroupBy] = createSignal<string>("sample_id");
@@ -219,6 +44,15 @@ const App: Component = () => {
   // Add a new state to store the applied filter settings
   const [appliedFilterSettings, setAppliedFilterSettings] = createStore<Settings>({});
 
+  // read data in memory
+  createEffect(async () => {
+    console.log("reading qc categories");
+    setReportStructure(await getReportStructure());
+
+    console.log("reading data");
+    setData(await getData());
+  });
+
   // Add a function to get all categorical columns
   const getCategoricalColumns = createMemo(() => {
     if (!data()) return ["sample_id"];
@@ -227,7 +61,7 @@ const App: Component = () => {
     const allColumns = new Set<string>();
     
     // Check each category for categorical columns
-    for (const category of qcCategories) {
+    for (const category of reportStructure().categories) {
       const categoryData = data()?.[category.key];
       if (categoryData) {
         categoryData.columns
@@ -288,12 +122,6 @@ const App: Component = () => {
     return result;
   });
 
-  // read data in memory
-  createEffect(async () => {
-    console.log("reading data");
-    setData(await getData());
-  });
-
   // initialise filtersettings
   type Settings = {
     [key in keyof RawData]: FilterSettings[];
@@ -302,8 +130,8 @@ const App: Component = () => {
     Object.fromEntries(Object.keys(data() ?? {}).map((key) => [key, []])),
   );
 
-  for (const category of qcCategories) {
-    createEffect(() => {
+  createEffect(() => {
+    for (const category of reportStructure().categories) {
       console.log(`setting ${category.name} filters`);
 
       const columnNames =
@@ -319,8 +147,8 @@ const App: Component = () => {
       });
 
       setSettings(category.key, newFilters);
-    });
-  }
+    }
+  });
 
   // Use the imported cell counting function
   const qcPass = createMemo(() => {
@@ -439,7 +267,7 @@ const App: Component = () => {
           </select>
         </div>
       </div>
-      <For each={qcCategories}>
+      <For each={reportStructure().categories}>
         {(category) => (
           <Show when={(settings[category.key] || []).length > 0}>
             <H2>{category.name}</H2>
@@ -667,7 +495,7 @@ const App: Component = () => {
           This overview is meant to give a quick glance at the data that has
           been loaded.
         </p>
-        <For each={qcCategories}>
+        <For each={reportStructure().categories}>
           {(category) => (
             <div>
               <H3>{category.name}</H3>
