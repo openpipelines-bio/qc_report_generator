@@ -21,14 +21,7 @@ import { createMemo } from "solid-js";
 import { SampleFilterForm } from "./components/sample-filter-form";
 import { filterData, calculateQcPassCells, getPassingCellIndices } from "./lib/data-filters";
 import { transformSampleMetadata } from "./lib/sample-utils";
-
-// Helper function to check if the data has spatial coordinates
-function hasSpatialCoordinates(data?: RawDataCategory) {
-  if (!data) return false;
-  const hasX = data.columns.some(c => c.name === "spatial_coord_x");
-  const hasY = data.columns.some(c => c.name === "spatial_coord_y");
-  return hasX && hasY;
-}
+import { hasSpatialCoordinates } from "./lib/plots";
 
 
 const App: Component = () => {

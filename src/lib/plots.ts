@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { Config, Layout, Shape } from "plotly.js-dist-min";
-import { RawData } from "~/types";
+import { RawData, RawDataCategory } from "~/types";
 
 // define a few colours
 export const recurringColours = {
@@ -84,4 +84,23 @@ export function plotlyConfig(): Partial<Config> {
     displaylogo: false,
     displayModeBar: false,
   };
+}
+
+
+/**
+ * Checks if the data has spatial coordinates (both x and y)
+ */
+export function hasSpatialCoordinates(data?: RawDataCategory): boolean {
+  if (!data) return false;
+  
+  // Log to check what columns are available in the data
+  console.log("Checking spatial coordinates. Available columns:", 
+    data.columns.map(c => c.name));
+  
+  const hasX = data.columns.some(c => c.name === "x_coord");
+  const hasY = data.columns.some(c => c.name === "y_coord");
+  
+  console.log(`Has spatial coordinates: hasX=${hasX}, hasY=${hasY}`);
+  
+  return hasX && hasY;
 }

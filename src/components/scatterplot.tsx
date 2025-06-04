@@ -35,26 +35,7 @@ function createAxisAnnotation(
 
 // Helper function to detect if we're plotting spatial coordinates
 function isSpatialPlot(xField: string, yField: string): boolean {
-  return (xField === "spatial_coord_x" && yField === "spatial_coord_y");
-}
-
-// Add this helper function to generate friendly names for the color scale
-function getColorbarTitle(fieldName: string | undefined): string {
-  if (!fieldName) return '';
-  
-  const friendlyNames: {[key: string]: string} = {
-    'total_counts': 'UMI Count',
-    'num_nonzero_vars': 'Gene Count',
-    'fraction_mitochondrial': 'Mito %',
-    'fraction_ribosomal': 'Ribo %',
-    'pct_of_counts_in_top_50_vars': 'Top 50 Genes %',
-    'cellbender_cell_probability': 'Cell Probability',
-    'cellbender_background_fraction': 'Background %',
-    'cellbender_cell_size': 'Cell Size',
-    'cellbender_droplet_efficiency': 'Droplet Efficiency'
-  };
-  
-  return friendlyNames[fieldName] || fieldName;
+  return (xField === "x_coord" && yField === "y_coord");
 }
 
 // Update scatterData function to handle the subplot layout for grouped spatial plots
@@ -63,6 +44,7 @@ function scatterData(props: {
   xFieldName: string;
   yFieldName: string;
   colorFieldName?: string;
+  colorFieldLabel?: string; // Add this parameter
   groupName?: string;
   additionalAxes?: boolean;
   zoomMinX?: number;
@@ -102,9 +84,9 @@ function scatterData(props: {
     opacity: 0.7,
     color: props.colorFieldName ? colorValues : recurringColours.pass,
     colorscale: 'Viridis',
-    showscale: props.colorFieldName && props.isSpatial ? true : false,  // Show color scale
+    showscale: props.colorFieldName && props.isSpatial ? true : false,
     colorbar: props.colorFieldName && props.isSpatial ? {
-      title: getColorbarTitle(props.colorFieldName), // Change to simple string
+      title: props.colorFieldLabel || props.colorFieldName || '', // Use label if available
       thickness: 15,
       len: 0.5,
       y: 0.5,
@@ -162,16 +144,14 @@ function scatterData(props: {
       markerProps = {
         ...defaultMarkerProps,
         color: filteredColors,
-        // Only show colorbar on the first subplot in grouped view
         showscale: i === 0 && props.isSpatial,
         colorbar: i === 0 && props.isSpatial ? {
-          title: getColorbarTitle(props.colorFieldName), // Change to simple string
+          title: props.colorFieldLabel || props.colorFieldName || '', // Use label if available
           thickness: 15,
           len: 0.5,
           y: 0.5,
           yanchor: 'middle' as "middle" | "top" | "bottom",
           outlinewidth: 0,
-          // Position the colorbar to the right of all plots
           x: 1.05
         } : undefined
       };
@@ -480,22 +460,22 @@ function scatterLayout(props: {
 export function ScatterPlot(props: Props) {
   // Check if spatial coordinates exist in the data
   const hasSpatialCoords = createMemo(() => {
-    const hasX = props.data.columns.some(c => c.name === "spatial_coord_x");
-    const hasY = props.data.columns.some(c => c.name === "spatial_coord_y"); 
+    const hasX = props.data.columns.some(c => c.name === "x_coord");
+    const hasY = props.data.columns.some(c => c.name === "y_coord"); 
     return hasX && hasY;
   });
   
   // Prioritize spatial coordinates if they exist
   const xFieldName = createMemo(() => {
     if (hasSpatialCoords() && props.filterSettings.visualizationType === "spatial") {
-      return "spatial_coord_x";
+      return "x_coord";
     }
     return props.filterSettings.field;
   });
   
   const yFieldName = createMemo(() => {
     if (hasSpatialCoords() && props.filterSettings.visualizationType === "spatial") {
-      return "spatial_coord_y";
+      return "y_coord";
     }
     return props.filterSettings.yField || 
       (props.data.columns[0]?.name !== xFieldName() ? 
@@ -505,7 +485,7 @@ export function ScatterPlot(props: Props) {
   
   // Determine if this is a spatial plot
   const isSpatialPlot = createMemo(() => 
-    xFieldName() === "spatial_coord_x" && yFieldName() === "spatial_coord_y"
+    xFieldName() === "x_coord" && yFieldName() === "y_coord"
   );
   
   // If we don't have proper x and y fields, return error message
@@ -513,18 +493,15 @@ export function ScatterPlot(props: Props) {
     return <div>Error: Missing X or Y field for scatter plot</div>;
   }
   
-  // Choose appropriate color field for spatial plots
+  // Choose the color field for the scatter plot
   const effectiveColorField = createMemo(() => {
+    // For spatial plots, use the selected field as the color
     if (isSpatialPlot()) {
-      // For spatial plots, prioritize total_counts as color if available
-      const hasUMI = props.data.columns.some(c => c.name === "total_counts");
-      if (hasUMI) return "total_counts";
-      
-      // Second choice: num_nonzero_vars
-      const hasGenes = props.data.columns.some(c => c.name === "num_nonzero_vars");
-      if (hasGenes) return "num_nonzero_vars";
+      // Use the field that was selected for this plot
+      return props.filterSettings.field;
     }
     
+    // For non-spatial plots, use the colorFieldName if provided
     return props.colorFieldName;
   });
 
@@ -565,32 +542,19 @@ export function ScatterPlot(props: Props) {
       isSpatial: isSpatialPlot(),
     });
     
-    // For grouped spatial plots, customize colorbar position
+    // Remove any title from the layout
+    const layoutWithoutTitle = {
+      ...baseLayout,
+      title: undefined  // Remove any title that might be set
+    };
+    
+    // For grouped spatial plots, customize colorbar position but don't add a title annotation
     if (isSpatialPlot() && props.filterSettings.groupBy && props.additionalAxes) {
-      // Create a properly typed annotation
-      const colorbarAnnotation: Partial<Layout["annotations"][0]> = {
-        text: getColorFieldLabel(),
-        font: { size: 14, color: '#333' },
-        showarrow: false,
-        xref: 'paper' as 'paper',  // Add type assertion
-        yref: 'paper' as 'paper',  // Add type assertion
-        x: 1.02,
-        y: 1,
-        xanchor: 'left' as 'left',  // Add type assertion
-        yanchor: 'top' as 'top'     // Add type assertion
-      };
-      
-      return {
-        ...baseLayout,
-        // Add the annotation correctly typed
-        annotations: [
-          ...(baseLayout.annotations || []),
-          colorbarAnnotation
-        ]
-      };
+      // Don't add the colorbar annotation that was here before
+      return layoutWithoutTitle;
     }
     
-    return baseLayout;
+    return layoutWithoutTitle;
   });
   
   return (

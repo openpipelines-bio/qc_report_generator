@@ -45,8 +45,8 @@ export function FilterSettingsForm(props: Props) {
 
   // Add a constant to check if the data has spatial coordinates
   const hasSpatialCoordinates = () => {
-    const hasX = props.data.columns.some(c => c.name === "spatial_coord_x");
-    const hasY = props.data.columns.some(c => c.name === "spatial_coord_y");
+    const hasX = props.data.columns.some(c => c.name === "x_coord");
+    const hasY = props.data.columns.some(c => c.name === "y_coord");
     return hasX && hasY;
   };
 
