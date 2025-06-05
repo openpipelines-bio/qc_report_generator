@@ -389,7 +389,7 @@ const App: Component = () => {
                                 data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
                                 filterSettings={{
                                   ...settings[category.key][i()],
-                                  groupBy: currentFilterGroupBy() // Use the extracted logic
+                                  groupBy: currentFilterGroupBy()
                                 }}
                               />
                             </Match>
@@ -399,7 +399,7 @@ const App: Component = () => {
                                 data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
                                 filterSettings={{
                                   ...settings[category.key][i()],
-                                  groupBy: currentFilterGroupBy() // Use the extracted logic
+                                  groupBy: currentFilterGroupBy()
                                 }}
                                 additionalAxes={category.additionalAxes}
                               />
@@ -410,10 +410,10 @@ const App: Component = () => {
                                 data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
                                 filterSettings={{
                                   ...settings[category.key][i()],
-                                  groupBy: currentFilterGroupBy() // Use the extracted logic
+                                  groupBy: currentFilterGroupBy()
                                 }}
                                 additionalAxes={category.additionalAxes}
-                                colorFieldName={settings[category.key][i()].field} // Use the actual field being visualized
+                                colorFieldName={settings[category.key][i()].field}
                               />
                             </Match>
                           </Switch>
