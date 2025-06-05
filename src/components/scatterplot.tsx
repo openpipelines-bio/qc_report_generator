@@ -12,13 +12,16 @@ type Props = {
 };
 
 // Create trace for a set of data points
+// Update the createTrace function to support colorbars
 function createTrace(
   x: Array<number | string | Date | null>, 
   y: Array<number | string | Date | null>, 
   name: string, 
   color?: Array<number | string> | string | undefined, 
   isSpatial: boolean = false, 
-  axisIndex: number = 0
+  axisIndex: number = 0,
+  showColorbar: boolean = false,
+  colorbarTitle?: string  // Add parameter for colorbar title
 ): Partial<PlotData> {
   return {
     type: "scatter",
@@ -28,7 +31,19 @@ function createTrace(
       size: isSpatial ? 6 : 8,
       opacity: 0.7,
       color,
-      line: { width: isSpatial ? 1 : 0, color: 'rgba(0,0,0,0.3)' }
+      line: { width: isSpatial ? 1 : 0, color: 'rgba(0,0,0,0.3)' },
+      colorbar: showColorbar ? {
+        title: colorbarTitle || "",
+        titleside: "right",
+        thickness: 15,
+        // Fixed size settings
+        len: 300,         // Fixed pixel length instead of fraction
+        lenmode: 'pixels', // Use pixels instead of fraction
+        y: 0.5,           // Center the colorbar vertically
+        yanchor: 'middle', // Anchor at the middle point
+        x: 1.05,
+        xanchor: "left"
+      } : undefined
     },
     xaxis: axisIndex > 0 ? `x${axisIndex}` : "x",
     yaxis: axisIndex > 0 ? `y${axisIndex}` : "y",
@@ -131,7 +146,10 @@ export function ScatterPlot(props: Props) {
         yValues, 
         "All Data", 
         props.colorFieldName ? getColorValues() : undefined,
-        isSpatial()
+        isSpatial(),
+        0,
+        props.colorFieldName !== undefined,
+        props.colorFieldName || props.filterSettings.field || "" // Pass colorbar title
       )];
     }
     
@@ -159,7 +177,9 @@ export function ScatterPlot(props: Props) {
           groupName,
           props.colorFieldName ? indices.map(idx => getColorValues()?.[idx]) : undefined,
           isSpatial(),
-          i + 1
+          i + 1,
+          i === uniqueGroups.length - 1 && props.colorFieldName !== undefined,
+          props.colorFieldName || props.filterSettings.field || "" // Pass colorbar title
         ));
       });
       
@@ -178,7 +198,9 @@ export function ScatterPlot(props: Props) {
         filteredY, 
         groupName,
         props.colorFieldName ? indices.map(idx => getColorValues()?.[idx]) : undefined,
-        isSpatial()
+        isSpatial(),
+        0,
+        i === 0 && props.colorFieldName !== undefined // Show colorbar only on first trace
       );
     });
   });
@@ -210,6 +232,43 @@ export function ScatterPlot(props: Props) {
     const uniqueGroups = [...new Set(groupValues)].sort();
     const numGroups = uniqueGroups.length;
     
+    // Special case for a single group - make it full width
+    if (numGroups === 1) {
+      const groupName = groupColumn.categories?.[uniqueGroups[0]] || `Group ${uniqueGroups[0]}`;
+      
+      // Create a layout similar to non-grouped case but with a group title
+      const layout: Record<string, any> = {
+        height: 400,
+        showlegend: false,
+        margin: { t: 50, r: 30, b: 60, l: 80 },
+        hovermode: "closest",
+        annotations: [{
+          text: `<b>${groupName}</b>`,
+          xref: 'paper',
+          yref: 'paper',
+          x: 0.5,
+          y: 1,
+          xanchor: 'center',
+          yanchor: 'bottom',
+          showarrow: false,
+          font: { size: 16 },
+        }],
+        xaxis: {
+          title: xTitle,
+          fixedrange: !isSpatial(),
+          automargin: true,
+        },
+        yaxis: {
+          title: yTitle,
+          fixedrange: !isSpatial(),
+          automargin: true,
+        }
+      };
+      
+      return layout;
+    }
+    
+    // For multiple groups, use the grid layout
     // Calculate grid dimensions
     const columns = 2;
     const rows = Math.ceil(numGroups / columns);
@@ -221,7 +280,7 @@ export function ScatterPlot(props: Props) {
     const layout: Record<string, any> = {
       height: height,
       showlegend: false,
-      margin: { t: 50, r: 30, b: 60, l: 80 },
+      margin: { t: 50, r: props.colorFieldName ? 80 : 30, b: 60, l: 80 }, // Wider right margin when colorbar is shown
       hovermode: "closest",
       annotations: [],
       // Add proper spacing between plots
@@ -238,27 +297,23 @@ export function ScatterPlot(props: Props) {
     // Create axes for each group
     uniqueGroups.forEach((group, i) => {
       const row = Math.floor(i / columns) + 1; // 1-indexed for Plotly grid
-      const col = (i % columns) + 1; // 1-indexed for Plotly grid
-      
+      const col = (i % columns) + 1;
       const groupName = groupColumn.categories?.[group] || `Group ${group}`;
       
-      // Add x-axis (let Plotly handle domain calculations)
+      // Add subplot axis configuration to layout
       layout[`xaxis${i+1}`] = {
         title: xTitle,
         fixedrange: !isSpatial(),
         automargin: true,
-        anchor: `y${i+1}`
       };
       
-      // Add y-axis (let Plotly handle domain calculations)
       layout[`yaxis${i+1}`] = {
-        title: col === 1 ? yTitle : '', // Only add title to leftmost column
+        title: col === 1 ? yTitle : '', // Only show y-axis title on left column
         fixedrange: !isSpatial(),
         automargin: true,
-        anchor: `x${i+1}`
       };
       
-      // Add annotation for group name with better positioning
+      // Add annotation for group title
       layout.annotations.push({
         text: `<b>${groupName}</b>`,
         xref: `x${i+1} domain`,
@@ -271,7 +326,7 @@ export function ScatterPlot(props: Props) {
         font: { size: 14 },
       });
     });
-
+    
     return layout;
   });
   
@@ -279,12 +334,7 @@ export function ScatterPlot(props: Props) {
     <Plot
       data={plotData()}
       layout={plotLayout()}
-      config={{
-        ...plotlyConfig(),
-        scrollZoom: isSpatial(),
-        displayModeBar: true,
-      }}
-      useResizeHandler={true}
+      config={plotlyConfig()}
       style={{ width: "100%", height: "100%" }}
     />
   );
