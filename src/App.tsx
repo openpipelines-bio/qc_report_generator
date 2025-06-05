@@ -413,7 +413,7 @@ const App: Component = () => {
                                   groupBy: currentFilterGroupBy() // Use the extracted logic
                                 }}
                                 additionalAxes={category.additionalAxes}
-                                colorFieldName="total_counts"
+                                colorFieldName={settings[category.key][i()].field} // Use the actual field being visualized
                               />
                             </Match>
                           </Switch>
