@@ -13,8 +13,8 @@ generate_dataset_type <- "both"  # Options: "sc", "xenium", "both"
 
 # SC dataset parameters
 sc_params <- list(
-  num_samples = 10,
-  cells_per_sample = 1000,
+  num_samples = 2,
+  cells_per_sample = 10,
   total_counts_range = c(10, 56),
   nonzero_vars_range = c(10, 46),
   cellbender_background_mean = 0.4,
@@ -32,8 +32,8 @@ sc_params <- list(
 
 # Xenium dataset parameters
 xenium_params <- list(
-  num_samples = 10,
-  cells_per_sample = 1000,
+  num_samples = 2,
+  cells_per_sample = 10,
   total_counts_range = c(16, 78),
   nonzero_vars_range = c(1, 2),
   cell_area_range = c(30, 150),
@@ -46,9 +46,9 @@ xenium_params <- list(
   ribo_fraction_sd = 0.05
 )
 
-# Transform dataframe to the expected JSON structure
+# Transform dataframe to the expected JSON structure - FIX HERE
 transform_df <- function(df) {
-  columns <- map(colnames(df), function(name) {
+  columns <- lapply(names(df), function(name) {
     data <- df[[name]]
     dtype <-
       if (is.integer(data)) {
@@ -60,19 +60,18 @@ transform_df <- function(df) {
       } else if (is.logical(data)) {
         "boolean"
       } else {
-        stop("Unknown / unsupported data type")
+        stop("Unknown / unsupported data type: ", class(data))
       }
 
     out <- list(
       name = name,
-      dtype = dtype
+      dtype = dtype,
+      data = if (dtype == "categorical") as.integer(data) - 1L else data
     )
 
     if (dtype == "categorical") {
       out$data <- as.integer(data) - 1L
-      out$categories <- levels(data)
-    } else {
-      out$data <- data
+      out$categories <- as.list(levels(data))  # Use as.list() to ensure array format in JSON
     }
 
     out
@@ -184,7 +183,7 @@ generate_sc_dataset <- function(params = sc_params) {
   # Write output to file
   jsonlite::write_json(
     output,
-    file.path(output_dir, "sc_dataset.json"),
+    file.path(output_dir, "sc_dataset_test.json"),
     pretty = TRUE,
     auto_unbox = TRUE
   )
@@ -283,7 +282,7 @@ generate_xenium_dataset <- function(params = xenium_params) {
   # Write output to file
   jsonlite::write_json(
     output,
-    file.path(output_dir, "xenium_dataset.json"),
+    file.path(output_dir, "xenium_dataset_test.json"),
     pretty = TRUE,
     auto_unbox = TRUE
   )
