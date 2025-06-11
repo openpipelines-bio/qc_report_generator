@@ -14,6 +14,10 @@ type ShowDataSummaryProps = {
 }
 
 export function DataSummaryTable(props: ShowDataSummaryProps) {
+  if (!props.data || !props.data.columns) {
+    return <div>No data available for this category</div>;
+  }
+
   return (
     <Table>
       <TableHeader>
@@ -46,5 +50,4 @@ export function DataSummaryTable(props: ShowDataSummaryProps) {
       </TableBody>
     </Table>
   );
-
 }

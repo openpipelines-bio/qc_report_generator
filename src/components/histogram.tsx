@@ -330,7 +330,7 @@ export function Histogram(props: Props) {
         data: props.data,
         valueName: props.filterSettings.field,
         groupName: props.filterSettings.groupBy,
-        numBins: props.filterSettings.nBins,
+        numBins: props.filterSettings.nBins || 50, // Add default value of 50
         zoomMin: props.filterSettings.zoomMin,
         zoomMax: props.filterSettings.zoomMax,
         additionalAxes: props.additionalAxes,
@@ -338,7 +338,7 @@ export function Histogram(props: Props) {
       layout={histogramLayout({
         data: props.data,
         groupName: props.filterSettings.groupBy,
-        xTitle: props.filterSettings.label,
+        xTitle: props.filterSettings.label || props.filterSettings.field, // Use field name as fallback
         minCutoff: props.filterSettings.cutoffMin,
         maxCutoff: props.filterSettings.cutoffMax,
         xType: props.filterSettings.xAxisType || "linear",
