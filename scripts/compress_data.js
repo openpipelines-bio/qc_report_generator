@@ -11,6 +11,12 @@ if (!inputFilePath || !outputFilePath) {
   process.exit(1);
 }
 
+// create output directory if it doesn't exist
+const outputDir = outputFilePath.substring(0, outputFilePath.lastIndexOf("/"));
+if (!fs.existsSync(outputDir)) {
+  fs.mkdirSync(outputDir, { recursive: true });
+}
+
 console.log(`Compressing ${inputFilePath}...`);
 const data = JSON.parse(fs.readFileSync(inputFilePath, "utf8"));
 

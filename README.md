@@ -4,15 +4,31 @@ This is a project to visualize the ingestion qc data.
 
 ## Usage
 
+Install dependencies:
+
 ```bash
 pnpm install
+```
 
-pnpm run compress_data path/to/report_structure.json src/data/report_structure.ts
+Generate test data:
+```bash
+Rscript scripts/generate_data.R
+```
 
-pnpm run compress_data path/to/dataset.json src/data/dataset.ts
+Compress input data:
 
+```bash
+pnpm run compress_data resources_test/sc_dataset/structure.json src/data/report_structure.ts
+
+pnpm run compress_data resources_test/sc_dataset/data.json src/data/dataset.ts
+```
+
+Generate report
+```bash
 pnpm run build
 ```
+
+The report should now have been built at `dist/index.html`
 
 ## Available Scripts
 
