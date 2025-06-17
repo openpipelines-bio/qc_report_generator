@@ -36,12 +36,10 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
-      
-      - name: Generate test data
-        run: gen:test_data
 
       - name: Build single-cell report
         run: |
+          pnpm run generate_data sc resources_test/sc_dataset
           pnpm run compress_data resources_test/sc_dataset/structure.json src/data/report_structure.ts
           pnpm run compress_data resources_test/sc_dataset/data.json src/data/dataset.ts
           pnpm run build
@@ -54,6 +52,7 @@ jobs:
 
       - name: Build spatial report
         run: |
+          pnpm run generate_data xenium resources_test/xenium_dataset
           pnpm run compress_data resources_test/xenium_dataset/structure.json src/data/report_structure.ts
           pnpm run compress_data resources_test/xenium_dataset/data.json src/data/dataset.ts
           pnpm run build

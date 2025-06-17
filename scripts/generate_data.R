@@ -1,10 +1,20 @@
-# Define output directory and create it if it doesn't exist
-output_dir <- "resources_test"
-dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+library(jsonlite, quietly = TRUE)
 
-# Generate either sc or xenium dataset
-generate_dataset_type <- "both" # Options: "sc", "xenium", "both"
+# get dataset type and output directory from command line arguments
+args <- commandArgs(trailingOnly = TRUE)
+if (length(args) < 2) {
+  stop("Usage: Rscript generate_data.R <dataset_type> <output_dir>")
+}
+dataset_type <- args[[1]]
+output_dir <- args[[2]]
 
+# Create output directory if it does not exist
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+}
+
+
+# Write data to JSON
 write_to_json <- function(data, path) {
   jsonlite::write_json(
     data,
@@ -464,39 +474,40 @@ generate_xenium_structure <- function() {
   )
 }
 
+generators <- list(
+  sc = list(
+    label = "Single-cell dataset",
+    data_fun = generate_sc_dataset,
+    structure_fun = generate_sc_structure
+  ),
+  xenium = list(
+    label = "Xenium dataset",
+    data_fun = generate_xenium_dataset,
+    structure_fun = generate_xenium_structure
+  )
+)
+
+# Generate either sc or xenium dataset
+if (!dataset_type %in% names(generators)) {
+  stop("Invalid dataset type. Use 'sc' for single-cell or 'xenium' for Xenium dataset.")
+}
+
+params <- generators[[dataset_type]]
+
 # Generate datasets based on specified type
-if (generate_dataset_type %in% c("sc", "both")) {
-  sc_dir <- file.path(output_dir, "sc_dataset")
-  dir.create(sc_dir, showWarnings = FALSE, recursive = TRUE)
+data_path <- file.path(output_dir, "data.json")
+structure_path <- file.path(output_dir, "structure.json")
 
-  sc_data_path <- file.path(sc_dir, "data.json")
-  sc_structure_path <- file.path(sc_dir, "structure.json")
+cat("Generating data for ", params$label, "...\n", sep = "")
+data <- params$data_fun()
 
-  sc_data <- generate_sc_dataset()
-  sc_structure <- generate_sc_structure()
+cat("Generating structure for ", params$label, "...\n", sep = "")
+structure <- params$structure_fun()
 
-  write_to_json(sc_data, sc_data_path)
-  write_to_json(sc_structure, sc_structure_path)
+cat("Writing data and structure to JSON files...\n")
+write_to_json(data, data_path)
+write_to_json(structure, structure_path)
 
-  cat("Single-cell dataset generated successfully.\n")
-  cat(" Data: ", sc_data_path, "\n")
-  cat(" Structure: ", sc_structure_path, "\n\n")
-}
-
-if (generate_dataset_type %in% c("xenium", "both")) {
-  sp_dir <- file.path(output_dir, "xenium_dataset")
-  dir.create(sp_dir, showWarnings = FALSE, recursive = TRUE)
-
-  sp_data <- generate_xenium_dataset()
-  sp_structure <- generate_xenium_structure()
-
-  sp_data_path <- file.path(sp_dir, "data.json")
-  sp_structure_path <- file.path(sp_dir, "structure.json")
-
-  write_to_json(sp_data, sp_data_path)
-  write_to_json(sp_structure, sp_structure_path)
-
-  cat("Xenium dataset generated successfully.\n")
-  cat(" Data: ", sp_data_path, "\n")
-  cat(" Structure: ", sp_structure_path, "\n\n")
-}
+cat(params$label, " dataset generated successfully.\n", sep = "")
+cat("  Data: ", data_path, "\n")
+cat("  Structure: ", structure_path, "\n\n")
