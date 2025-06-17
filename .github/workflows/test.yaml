@@ -37,7 +37,7 @@ jobs:
       - name: Build single-cell report
         run: |
           pnpm run compress_data resources_test/sc_dataset/structure.json src/data/report_structure.ts
-          pnpm run resources_test/sc_dataset/data.json src/data/dataset.ts
+          pnpm run compress_data resources_test/sc_dataset/data.json src/data/dataset.ts
           pnpm run build
             
       - name: Clean up
@@ -49,7 +49,7 @@ jobs:
       - name: Build spatial report
         run: |
           pnpm run compress_data resources_test/xenium_dataset/structure.json src/data/report_structure.ts
-          pnpm run resources_test/xenium_dataset/data.json src/data/dataset.ts
+          pnpm run compress_data resources_test/xenium_dataset/data.json src/data/dataset.ts
           pnpm run build
 
       - name: Clean up spatial report
