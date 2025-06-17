@@ -51,8 +51,14 @@ jobs:
           pnpm run build
           mv dist/index.html output/spatial-report.html
 
-      - name: Upload reports
+      - name: Upload single-cell report
         uses: actions/upload-artifact@v4
         with:
-          name: reports
-          path: output/
+          name: single-cell-report
+          path: output/single-cell-report.html
+
+      - name: Upload single-cell report
+        uses: actions/upload-artifact@v4
+        with:
+          name: spatial-report
+          path: output/spatial-report.html
