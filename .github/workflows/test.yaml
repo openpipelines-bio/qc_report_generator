@@ -37,18 +37,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Prepare output directory
+        run: mkdir output
+
       - name: Build single-cell report
         run: |
           pnpm run generate_data sc resources_test/sc_dataset
           pnpm run compress_data resources_test/sc_dataset/structure.json src/data/report_structure.ts
           pnpm run compress_data resources_test/sc_dataset/data.json src/data/dataset.ts
           pnpm run build
-            
-      - name: Clean up
-        run: |
-          mkdir output
           mv dist/index.html output/single-cell-report.html
-          rm -rf src/data/*
 
       - name: Build spatial report
         run: |
@@ -56,12 +54,7 @@ jobs:
           pnpm run compress_data resources_test/xenium_dataset/structure.json src/data/report_structure.ts
           pnpm run compress_data resources_test/xenium_dataset/data.json src/data/dataset.ts
           pnpm run build
-
-      - name: Clean up spatial report
-        run: |
-          mkdir output
-          mv dist/index.html output/spatia§l-report.html
-          rm -rf src/data/*
+          mv dist/index.html output/spatial-report.html
 
       - name: Upload reports
         uses: actions/upload-artifact@v4
