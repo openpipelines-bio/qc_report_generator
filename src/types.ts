@@ -18,6 +18,8 @@ export type RawData = {
 export interface FilterSettings {
   type: "histogram" | "bar" | "scatter";
   visualizationType?: "histogram" | "spatial";  // Only histogram and spatial
+  binType?: "hexbin";  // Add this to support hexbin mode for spatial plots
+  binSize?: number;    // Add this to control hexbin size
   field: string;
   label?: string;
   // yField can still stay as it might be used by the scatterplot component

@@ -15,7 +15,7 @@ import {
 import { FilterSettings, RawDataCategory, RawData } from "~/types";
 import { TextFieldInput, TextFieldLabel } from "./ui/text-field";
 import { NumberField } from "./number-field";
-import { createSignal } from "solid-js";
+import { createSignal, Show } from "solid-js";
 
 // Update the props to include the global group by, force group by, and isGlobalGroupingEnabled
 type Props = {
@@ -89,6 +89,12 @@ export function FilterSettingsForm(props: Props) {
   // Update these variable definitions
   const isBarPlot = props.filterSettings.type === "bar";
   const isHistogram = (props.filterSettings.type === "histogram" || props.filterSettings.visualizationType === "histogram");
+  
+  // Add a function to check if we're in spatial mode
+  const isSpatial = () => {
+    return props.filterSettings.visualizationType === "spatial" &&
+           hasSpatialCoordinates();
+  };
   
   return (
     <div>
@@ -243,6 +249,34 @@ export function FilterSettingsForm(props: Props) {
                       <SelectContent />
                     </Select>
                   )}
+                  
+                  {/* Add hexbin controls */}
+                  <Show when={isSpatial()}>
+                    <div class="col-span-2">
+                      <div class="mt-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                          Hexbin Size
+                        </label>
+                        <div class="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min="5"
+                            max="50"
+                            step="5"
+                            value={props.filterSettings.binSize || 20}
+                            onInput={(e) => props.updateFilterSettings(settings => {
+                              settings.binSize = parseInt(e.target.value);
+                              return settings;
+                            })}
+                            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                          />
+                          <span class="text-sm text-gray-500 w-10 text-right">
+                            {props.filterSettings.binSize || 20}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </Show>
                 </div>
               </CardContent>
             </Card>

@@ -316,9 +316,10 @@ const App: Component = () => {
                         <Show when={category.key === "cell_rna_stats" && 
                                    settings[category.key][i()].type === "histogram" && 
                                    hasSpatialCoordinates(data()?.cell_rna_stats)}>
+                          {/* Change to a two-way toggle */}
                           <div 
                             class="relative rounded-full bg-gray-200 shadow-sm overflow-hidden"
-                            style={{ height: "32px", width: "180px" }}
+                            style={{ height: "32px", width: "180px" }} // Reduced width for two options
                           >
                             <div 
                               class="absolute bg-white rounded-full shadow transition-transform duration-200"
@@ -327,7 +328,7 @@ const App: Component = () => {
                                 height: "calc(100% - 4px)",
                                 top: "2px",
                                 left: "2px",
-                                transform: settings[category.key][i()].visualizationType !== 'spatial' 
+                                transform: !settings[category.key][i()].visualizationType || settings[category.key][i()].visualizationType === 'histogram'
                                   ? 'translateX(0)' 
                                   : 'translateX(calc(100% + 4px))'
                               }}
@@ -340,7 +341,7 @@ const App: Component = () => {
                               >
                                 <span 
                                   class={`text-sm font-medium transition-colors duration-200 ${
-                                    settings[category.key][i()].visualizationType !== 'spatial' ? 'text-gray-800' : 'text-gray-500'
+                                    !settings[category.key][i()].visualizationType || settings[category.key][i()].visualizationType === 'histogram' ? 'text-gray-800' : 'text-gray-500'
                                   }`}
                                 >
                                   Histogram
@@ -349,7 +350,11 @@ const App: Component = () => {
                               
                               <div 
                                 class="flex items-center justify-center w-1/2 cursor-pointer"
-                                onClick={() => setSettings(category.key, i(), { ...settings[category.key][i()], visualizationType: 'spatial' })}
+                                onClick={() => setSettings(category.key, i(), { 
+                                  ...settings[category.key][i()], 
+                                  visualizationType: 'spatial',
+                                  binType: 'hexbin' // Always set hexbin when switching to spatial
+                                })}
                               >
                                 <span 
                                   class={`text-sm font-medium transition-colors duration-200 ${
@@ -410,7 +415,8 @@ const App: Component = () => {
                                 data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
                                 filterSettings={{
                                   ...settings[category.key][i()],
-                                  groupBy: currentFilterGroupBy()
+                                  groupBy: currentFilterGroupBy(),
+                                  binType: 'hexbin' // Always use hexbin for spatial visualization
                                 }}
                                 additionalAxes={category.additionalAxes}
                                 colorFieldName={settings[category.key][i()].field}
