@@ -1,0 +1,64 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          cache: 'pnpm'
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+
+      - name: Install jsonlite
+        run: Rscript -e "install.packages('jsonlite')"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Prepare output directory
+        run: mkdir output
+
+      - name: Build single-cell report
+        run: |
+          pnpm run generate_data sc resources_test/sc_dataset
+          pnpm run compress_data resources_test/sc_dataset/structure.json src/data/report_structure.ts
+          pnpm run compress_data resources_test/sc_dataset/data.json src/data/dataset.ts
+          pnpm run build
+          mv dist/index.html output/single-cell-report.html
+
+      - name: Build spatial report
+        run: |
+          pnpm run generate_data xenium resources_test/xenium_dataset
+          pnpm run compress_data resources_test/xenium_dataset/structure.json src/data/report_structure.ts
+          pnpm run compress_data resources_test/xenium_dataset/data.json src/data/dataset.ts
+          pnpm run build
+          mv dist/index.html output/spatial-report.html
+
+      - name: Upload single-cell report
+        uses: actions/upload-artifact@v4
+        with:
+          name: single-cell-report
+          path: output/single-cell-report.html
+
+      - name: Upload single-cell report
+        uses: actions/upload-artifact@v4
+        with:
+          name: spatial-report
+          path: output/spatial-report.html

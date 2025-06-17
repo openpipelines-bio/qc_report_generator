@@ -29,3 +29,6 @@ gitignore
 # System Files
 .DS_Store
 Thumbs.db
+
+# test files
+resources_test
