@@ -1,0 +1,66 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          cache: 'pnpm'
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.2'
+          cache: true
+      
+      - name: Install dependencies
+        run: pnpm install
+      
+      - name: Generate test data
+        run: Rscript scripts/generate_test_data.R
+
+      - name: Build single-cell report
+        run: |
+          pnpm run compress_data resources_test/sc_dataset/structure.json src/data/report_structure.ts
+          pnpm run resources_test/sc_dataset/data.json src/data/dataset.ts
+          pnpm run build
+            
+      - name: Clean up
+        run: |
+          mkdir output
+          mv dist/index.html output/single-cell-report.html
+          rm -rf src/data/*
+
+      - name: Build spatial report
+        run: |
+          pnpm run compress_data resources_test/sp_dataset/structure.json src/data/report_structure.ts
+          pnpm run resources_test/sp_dataset/data.json src/data/dataset.ts
+          pnpm run build
+
+      - name: Clean up spatial report
+        run: |
+          mkdir output
+          mv dist/index.html output/spatia§l-report.html
+          rm -rf src/data/*
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: output/
