@@ -29,10 +29,8 @@ jobs:
           r-version: '4.2'
 
       - name: Install R packages
-        uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          packages: jsonlite
-          cache: true
+        run: |
+          install.packages("jsonlite")
 
       - name: Install dependencies
         run: pnpm install
