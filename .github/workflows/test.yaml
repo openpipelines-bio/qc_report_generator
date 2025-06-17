@@ -38,7 +38,7 @@ jobs:
         run: pnpm install
       
       - name: Generate test data
-        run: Rscript scripts/generate_data.R
+        run: gen:test_data
 
       - name: Build single-cell report
         run: |

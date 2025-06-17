@@ -225,47 +225,49 @@ generate_sc_structure <- function() {
     "cellbender_droplet_efficiency"
   )
   list(
-    list(
-      name = "Sample QC",
-      key = "sample_summary_stats",
-      additionalAxes = FALSE,
-      defaultFilters = list()
-    ),
-    list(
-      name = "SampleQC",
-      key = "metrics_cellranger_stats",
-      additionalAxes = FALSE,
-      defaultFilters = lapply(cellranger_names, function(name) {
-        list(
-          type = "bar",
-          field = name,
-          label = gsub("_", " ", name),
-          description = paste("Description for", name),
-          nBins = 10,
-          groupBy = "sample_id",
-          xAxisType = "linear",
-          yAxisType = "linear"
-        )
-      })
-    ),
-    list(
-      name = "Cell RNA QC",
-      key = "cell_rna_stats",
-      additionalAxes = TRUE,
-      defaultFilters = lapply(cell_rna_names, function(name) {
-        list(
-          type = "histogram",
-          field = name,
-          label = gsub("_", " ", name),
-          description = paste("Description for", name),
-          cutoffMin = NULL,
-          cutoffMax = NULL,
-          zoomMax = NULL,
-          nBins = 50,
-          groupBy = "sample_id",
-          yAxisType = "linear"
-        )
-      })
+    categories = list(
+      list(
+        name = "Sample QC",
+        key = "sample_summary_stats",
+        additionalAxes = FALSE,
+        defaultFilters = list()
+      ),
+      list(
+        name = "SampleQC",
+        key = "metrics_cellranger_stats",
+        additionalAxes = FALSE,
+        defaultFilters = lapply(cellranger_names, function(name) {
+          list(
+            type = "bar",
+            field = name,
+            label = gsub("_", " ", name),
+            description = paste("Description for", name),
+            nBins = 10,
+            groupBy = "sample_id",
+            xAxisType = "linear",
+            yAxisType = "linear"
+          )
+        })
+      ),
+      list(
+        name = "Cell RNA QC",
+        key = "cell_rna_stats",
+        additionalAxes = TRUE,
+        defaultFilters = lapply(cell_rna_names, function(name) {
+          list(
+            type = "histogram",
+            field = name,
+            label = gsub("_", " ", name),
+            description = paste("Description for", name),
+            cutoffMin = NULL,
+            cutoffMax = NULL,
+            zoomMax = NULL,
+            nBins = 50,
+            groupBy = "sample_id",
+            yAxisType = "linear"
+          )
+        })
+      )
     )
   )
 }
@@ -431,31 +433,33 @@ generate_xenium_structure <- function() {
   colnames <- c("total_counts", "num_nonzero_vars", "fraction_mitochondrial",
                 "fraction_ribosomal", "cell_area", "nucleus_ratio")
   list(
-    list(
-      name = "Sample QC",
-      key = "sample_summary_stats",
-      additionalAxes = FALSE,
-      defaultFilters = list()
-    ),
-    list(
-      name = "Cell RNA QC",
-      key = "cell_rna_stats",
-      additionalAxes = TRUE,
-      defaultFilters = lapply(colnames, function(col) {
-        list(
-          type = "histogram",
-          visualizationType = "histogram",
-          field = col,
-          label = gsub("_", " ", col),
-          description = paste("Description for", col),
-          cutoffMin = NULL,
-          cutoffMax = NULL,
-          zoomMax = NULL,
-          nBins = 50,
-          groupBy = "sample_id",
-          yAxisType = "linear"
-        )
-      })
+    categories = list(
+      list(
+        name = "Sample QC",
+        key = "sample_summary_stats",
+        additionalAxes = FALSE,
+        defaultFilters = list()
+      ),
+      list(
+        name = "Cell RNA QC",
+        key = "cell_rna_stats",
+        additionalAxes = TRUE,
+        defaultFilters = lapply(colnames, function(col) {
+          list(
+            type = "histogram",
+            visualizationType = "histogram",
+            field = col,
+            label = gsub("_", " ", col),
+            description = paste("Description for", col),
+            cutoffMin = NULL,
+            cutoffMax = NULL,
+            zoomMax = NULL,
+            nBins = 50,
+            groupBy = "sample_id",
+            yAxisType = "linear"
+          )
+        })
+      )
     )
   )
 }
