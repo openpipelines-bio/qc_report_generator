@@ -20,7 +20,8 @@ write_to_json <- function(data, path) {
     data,
     path,
     pretty = TRUE,
-    auto_unbox = TRUE
+    auto_unbox = TRUE,
+    null = "null"
   )
 }
 
