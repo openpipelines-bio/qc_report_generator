@@ -47,7 +47,16 @@ const App: Component = () => {
     setReportStructure(await getReportStructure());
 
     console.log("reading data");
-    setData(await getData());
+    const data = await getData();
+    setData(data);
+    
+    // make sure to set the initial selected samples
+    const sampleIds = data.sample_summary_stats?.columns.find(col => col.name === "sample_id")?.categories || [];
+    form.setFieldValue("sampleSelection.selectedSamples", sampleIds);
+  });
+
+  const sampleMetadata = createMemo(() => {
+    return transformSampleMetadata(data());
   });
 
   // Add a function to get all categorical columns
@@ -227,10 +236,7 @@ const App: Component = () => {
     <SettingsFormProvider form={form}>
       <div class="container mx-a space-y-2">
         <H1>OpenPipelines Ingestion QC Report</H1>
-        <SampleFilterForm
-          sampleIds={data()?.sample_summary_stats.columns.find(c => c.name === "sample_id")?.categories || []}
-          sampleMetadata={transformSampleMetadata(data())}
-        />
+        <SampleFilterForm sampleMetadata={sampleMetadata()} />
         <GlobalVisualizationSettings getCategoricalColumns={getCategoricalColumns} />
         <For each={reportStructure().categories}>
           {(category) => (

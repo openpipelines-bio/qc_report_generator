@@ -1,6 +1,5 @@
-import { For, Match, Switch, createEffect, createSignal } from "solid-js";
+import { For, Match, Switch, createSignal } from "solid-js";
 import { useSettingsForm } from "./settings-form";
-import { sample } from "lodash";
 
 interface SampleMetadata {
   rna_num_barcodes?: number;
@@ -12,8 +11,7 @@ interface SampleMetadata {
 }
 
 interface SampleFilterFormProps {
-  sampleIds: string[];
-  sampleMetadata?: Record<string, SampleMetadata>;
+  sampleMetadata: Record<string, SampleMetadata>;
 }
 
 function SimpleViewMode(props: SampleFilterFormProps) {
@@ -21,7 +19,7 @@ function SimpleViewMode(props: SampleFilterFormProps) {
 
   return (
     <div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-      <For each={props.sampleIds}>
+      <For each={Object.keys(props.sampleMetadata)}>
         {(sampleId) => (
           <form.Field name="sampleSelection.selectedSamples">
             {(field) => (
@@ -84,7 +82,7 @@ function TableViewMode(props: SampleFilterFormProps) {
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-          <For each={props.sampleIds}>
+          <For each={Object.keys(props.sampleMetadata)}>
             {(sampleId) => {
               const metadata = props.sampleMetadata?.[sampleId] || {};
               return (
@@ -124,7 +122,6 @@ function TableViewMode(props: SampleFilterFormProps) {
     </div>
   )
 }
-
 
 export function SampleFilterForm(props: SampleFilterFormProps) {
   const [viewMode, setViewMode] = createSignal<"simple" | "table">("simple");
@@ -190,14 +187,14 @@ export function SampleFilterForm(props: SampleFilterFormProps) {
               <input 
                 type="checkbox" 
                 checked={
-                  field().state.value.length === props.sampleIds.length
+                  field().state.value.length === Object.keys(props.sampleMetadata).length
                 }
                 ref={el => 
-                  el.indeterminate = field().state.value.length > 0 && field().state.value.length < props.sampleIds.length
+                  el.indeterminate = field().state.value.length > 0 && field().state.value.length < Object.keys(props.sampleMetadata).length
                 }
                 onChange={(e) =>
                   e.target.checked 
-                    ? field().handleChange([...props.sampleIds]) 
+                    ? field().handleChange(Object.keys(props.sampleMetadata)) 
                     : field().handleChange([])
                 }
                 class="form-checkbox"
@@ -218,7 +215,7 @@ export function SampleFilterForm(props: SampleFilterFormProps) {
       </Switch>
       
       <div class="mt-2 text-sm text-gray-500">
-        {store.length} of {props.sampleIds.length} samples selected
+        {store().selectedSamples.length} of {Object.keys(props.sampleMetadata).length} samples selected
       </div>
 
       {/* Add info about pre-filtering */}
