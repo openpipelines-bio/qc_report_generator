@@ -35,6 +35,7 @@
     "@msgpack/msgpack": "3.0.0-beta3",
     "@ralphsmith80/solid-plotly.js": "^0.0.1",
     "@solid-primitives/scheduled": "^1.5.0",
+    "@tanstack/solid-form": "^1.12.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lodash": "^4.17.21",

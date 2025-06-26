@@ -13,9 +13,9 @@ import {
   CardTitle,
 } from "~/components/ui/small-card";
 import { FilterSettings, RawDataCategory, RawData } from "~/types";
-import { TextFieldInput, TextFieldLabel } from "./ui/text-field";
-import { NumberField } from "./number-field";
-import { createSignal } from "solid-js";
+import { TextFieldInput, TextFieldLabel } from "../ui/text-field";
+import { NumberField } from "../number-field";
+import { createSignal, Show } from "solid-js";
 
 // Update the props to include the global group by, force group by, and isGlobalGroupingEnabled
 type Props = {
@@ -112,7 +112,7 @@ export function FilterSettingsForm(props: Props) {
               <CardContent>
                 <div class="grid grid-cols-2 gap-2">
                   {/* Only show Min/Max zoom fields for histograms */}
-                  {isHistogram && (
+                  <Show when={isHistogram}>
                     <>
                       <NumberField
                         value={props.filterSettings.zoomMin}
@@ -135,10 +135,9 @@ export function FilterSettingsForm(props: Props) {
                         <TextFieldInput />
                       </NumberField>
                     </>
-                  )}
+                  </Show>
                   
                   {/* Remove the Y-field selection section entirely */}
-                  
                   <div class="relative">
                     <Select
                       value={props.forceGroupBy || (props.isGlobalGroupingEnabled && props.globalGroupBy) || props.filterSettings.groupBy || "sample_id"}
@@ -179,7 +178,7 @@ export function FilterSettingsForm(props: Props) {
                   </div>
                   
                   {/* Only show #Bins for histograms */}
-                  {isHistogram && (
+                  <Show when={isHistogram}>
                     <NumberField
                       value={props.filterSettings.nBins}
                       onChange={(value) => props.updateFilterSettings((settings) => {
@@ -190,7 +189,7 @@ export function FilterSettingsForm(props: Props) {
                       <TextFieldLabel># Bins</TextFieldLabel>
                       <TextFieldInput />
                     </NumberField>
-                  )}
+                  </Show>
                   
                   {/* Always show X-Axis Scale */}
                   <Select
@@ -218,7 +217,7 @@ export function FilterSettingsForm(props: Props) {
                   </Select>
                   
                   {/* Update Y-Axis Scale to only show for histograms */}
-                  {isHistogram && (
+                  <Show when={isHistogram}>
                     <Select
                       value={props.filterSettings.yAxisType || "linear"}
                       onChange={(value) =>
@@ -242,13 +241,13 @@ export function FilterSettingsForm(props: Props) {
                       </SelectTrigger>
                       <SelectContent />
                     </Select>
-                  )}
+                  </Show>
                 </div>
               </CardContent>
             </Card>
             
             {/* Only show Filter thresholds card for cell_rna_stats */}
-            {props.category === "cell_rna_stats" && (
+            <Show when={props.category === "cell_rna_stats"}>
               <Card>
                 <CardHeader>
                   <CardTitle>Filter thresholds</CardTitle>
@@ -297,7 +296,7 @@ export function FilterSettingsForm(props: Props) {
                   </div>
                 </CardContent>
               </Card>
-            )}
+            </Show>
           </div>
         </div>
       )}
