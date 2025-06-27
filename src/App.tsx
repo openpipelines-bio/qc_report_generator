@@ -24,6 +24,7 @@ import { transformSampleMetadata } from "./lib/sample-utils";
 import { hasSpatialCoordinates } from "./lib/plots";
 import { createSettingsForm, SettingsFormProvider } from "./components/app/settings-form";
 import { GlobalVisualizationSettings } from "./components/app/global-visualization-settings";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./components/ui/collapsible";
 
 
 const App: Component = () => {
@@ -244,6 +245,7 @@ const App: Component = () => {
               <H2>{category.name}</H2>
               
               {/* Add descriptive text based on category */}
+              {/* TODO: move descriptive text into the report structure itself */}
               <div class="mb-4 text-gray-700">
                 {category.key === "sample_summary_stats" && (
                   <p>
@@ -283,7 +285,7 @@ const App: Component = () => {
                       }
                     });
                     
-                    const [isExpanded, setIsExpanded] = createSignal(true); // Start expanded
+                    const [isPlotExpanded, setIsPlotExpanded] = createSignal(true);
                     
                     return (
                       <div>
@@ -346,68 +348,66 @@ const App: Component = () => {
                           <p class="text-gray-600 text-sm mb-2">{setting.description}</p>
                         </Show>
 
-                        <button 
-                          onClick={() => setIsExpanded(!isExpanded())}
-                          class="w-full px-4 py-2 text-left text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md flex justify-between items-center mb-2"
-                        >
-                          <span>Plot Visibility</span>
-                          <span class="transition-transform duration-200" classList={{ "rotate-180": !isExpanded() }}>
-                            ▼
-                          </span>
-                        </button>
-                        
-                        {isExpanded() && (
-                          <div class="flex flex-col space-y-2">
-                            <Switch>
-                              <Match when={!data()}>
-                                <div>Loading...</div>
-                              </Match>
-                              <Match when={setting.type === "bar"}>
-                                <BarPlot
-                                  data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
-                                  filterSettings={{
-                                    ...setting,
-                                    groupBy: currentFilterGroupBy()
-                                  }}
-                                />
-                              </Match>
-                              <Match when={setting.type === "histogram" && 
-                                          (setting.visualizationType === "histogram" || !setting.visualizationType)}>
-                                <Histogram
-                                  data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
-                                  filterSettings={{
-                                    ...setting,
-                                    groupBy: currentFilterGroupBy()
-                                  }}
-                                  additionalAxes={category.additionalAxes}
-                                />
-                              </Match>
-                              <Match when={setting.type === "histogram" && 
-                                          setting.visualizationType === "spatial"}>
-                                <ScatterPlot
-                                  data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
-                                  filterSettings={{
-                                    ...setting,
-                                    groupBy: currentFilterGroupBy()
-                                  }}
-                                  additionalAxes={category.additionalAxes}
-                                  colorFieldName={setting.field}
-                                />
-                              </Match>
-                            </Switch>
-                            <FilterSettingsForm
-                              filterSettings={setting}
-                              updateFilterSettings={(fn) =>
-                                setSettings(category.key, i(), produce(fn))
-                              }
-                              data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
-                              globalGroupBy={category.key === "metrics_cellranger_stats" ? undefined : (globalVisualization().groupingEnabled ? globalVisualization().groupBy : undefined)}
-                              forceGroupBy={category.key === "metrics_cellranger_stats" ? "sample_id" : undefined}
-                              isGlobalGroupingEnabled={globalVisualization().groupingEnabled}
-                              category={category.key} // Pass the category key
-                            />
-                          </div>
-                        )}
+                        <Collapsible open={isPlotExpanded()} onOpenChange={setIsPlotExpanded}>
+                          <CollapsibleTrigger
+                            class="w-full px-4 py-2 text-left text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md flex justify-between items-center mb-2"
+                          >
+                            Plot Visibility 
+                            <span class="transition-transform duration-200" classList={{ "rotate-180": !isPlotExpanded() }}>▼</span>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div class="flex flex-col space-y-2">
+                              <Switch>
+                                <Match when={!data()}>
+                                  <div>Loading...</div>
+                                </Match>
+                                <Match when={setting.type === "bar"}>
+                                  <BarPlot
+                                    data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
+                                    filterSettings={{
+                                      ...setting,
+                                      groupBy: currentFilterGroupBy()
+                                    }}
+                                  />
+                                </Match>
+                                <Match when={setting.type === "histogram" && 
+                                            (setting.visualizationType === "histogram" || !setting.visualizationType)}>
+                                  <Histogram
+                                    data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
+                                    filterSettings={{
+                                      ...setting,
+                                      groupBy: currentFilterGroupBy()
+                                    }}
+                                    additionalAxes={category.additionalAxes}
+                                  />
+                                </Match>
+                                <Match when={setting.type === "histogram" && 
+                                            setting.visualizationType === "spatial"}>
+                                  <ScatterPlot
+                                    data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
+                                    filterSettings={{
+                                      ...setting,
+                                      groupBy: currentFilterGroupBy()
+                                    }}
+                                    additionalAxes={category.additionalAxes}
+                                    colorFieldName={setting.field}
+                                  />
+                                </Match>
+                              </Switch>
+                              <FilterSettingsForm
+                                filterSettings={setting}
+                                updateFilterSettings={(fn) =>
+                                  setSettings(category.key, i(), produce(fn))
+                                }
+                                data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
+                                globalGroupBy={category.key === "metrics_cellranger_stats" ? undefined : (globalVisualization().groupingEnabled ? globalVisualization().groupBy : undefined)}
+                                forceGroupBy={category.key === "metrics_cellranger_stats" ? "sample_id" : undefined}
+                                isGlobalGroupingEnabled={globalVisualization().groupingEnabled}
+                                category={category.key} // Pass the category key
+                              />
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
                       </div>
                     );
                   }}
