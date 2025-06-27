@@ -271,7 +271,7 @@ const App: Component = () => {
               
               <div class="grid grid-cols-1 gap-4">
                 <For each={settings[category.key]}>
-                  {(_, i) => {
+                  {(setting, i) => {
                     // Extract the groupBy logic into a reactive memo
                     const currentFilterGroupBy = createMemo(() => {
                       if (category.key === "metrics_cellranger_stats") {
@@ -279,7 +279,7 @@ const App: Component = () => {
                       } else if (globalVisualization().groupingEnabled) {
                         return globalVisualization().groupBy; // Use global setting when enabled
                       } else {
-                        return settings[category.key][i()].groupBy || "sample_id"; // Use plot's own setting or default
+                        return setting.groupBy || "sample_id"; // Use plot's own setting or default
                       }
                     });
                     
@@ -288,11 +288,11 @@ const App: Component = () => {
                     return (
                       <div>
                         <div class="flex justify-between items-center mb-2">
-                          <H3>{settings[category.key][i()].label}</H3>
+                          <H3>{setting.label}</H3>
                           
                           {/* Add the visualization toggle in the top-right corner */}
                           <Show when={category.key === "cell_rna_stats" && 
-                                    settings[category.key][i()].type === "histogram" && 
+                                    setting.type === "histogram" && 
                                     hasSpatialCoordinates(data()?.cell_rna_stats)}>
                             <div 
                               class="relative rounded-full bg-gray-200 shadow-sm overflow-hidden"
@@ -305,7 +305,7 @@ const App: Component = () => {
                                   height: "calc(100% - 4px)",
                                   top: "2px",
                                   left: "2px",
-                                  transform: settings[category.key][i()].visualizationType !== 'spatial' 
+                                  transform: setting.visualizationType !== 'spatial' 
                                     ? 'translateX(0)' 
                                     : 'translateX(calc(100% + 4px))'
                                 }}
@@ -314,11 +314,11 @@ const App: Component = () => {
                               <div class="absolute inset-0 flex w-full h-full">
                                 <div 
                                   class="flex items-center justify-center w-1/2 cursor-pointer"
-                                  onClick={() => setSettings(category.key, i(), { ...settings[category.key][i()], visualizationType: 'histogram' })}
+                                  onClick={() => setSettings(category.key, i(), { ...setting, visualizationType: 'histogram' })}
                                 >
                                   <span 
                                     class={`text-sm font-medium transition-colors duration-200 ${
-                                      settings[category.key][i()].visualizationType !== 'spatial' ? 'text-gray-800' : 'text-gray-500'
+                                      setting.visualizationType !== 'spatial' ? 'text-gray-800' : 'text-gray-500'
                                     }`}
                                   >
                                     Histogram
@@ -327,11 +327,11 @@ const App: Component = () => {
                                 
                                 <div 
                                   class="flex items-center justify-center w-1/2 cursor-pointer"
-                                  onClick={() => setSettings(category.key, i(), { ...settings[category.key][i()], visualizationType: 'spatial' })}
+                                  onClick={() => setSettings(category.key, i(), { ...setting, visualizationType: 'spatial' })}
                                 >
                                   <span 
                                     class={`text-sm font-medium transition-colors duration-200 ${
-                                      settings[category.key][i()].visualizationType === 'spatial' ? 'text-gray-800' : 'text-gray-500'
+                                      setting.visualizationType === 'spatial' ? 'text-gray-800' : 'text-gray-500'
                                     }`}
                                   >
                                     Spatial
@@ -342,8 +342,8 @@ const App: Component = () => {
                           </Show>
                         </div>
                         
-                        <Show when={settings[category.key][i()].description}>
-                          <p class="text-gray-600 text-sm mb-2">{settings[category.key][i()].description}</p>
+                        <Show when={setting.description}>
+                          <p class="text-gray-600 text-sm mb-2">{setting.description}</p>
                         </Show>
 
                         <button 
@@ -362,41 +362,41 @@ const App: Component = () => {
                               <Match when={!data()}>
                                 <div>Loading...</div>
                               </Match>
-                              <Match when={settings[category.key][i()].type === "bar"}>
+                              <Match when={setting.type === "bar"}>
                                 <BarPlot
                                   data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
                                   filterSettings={{
-                                    ...settings[category.key][i()],
+                                    ...setting,
                                     groupBy: currentFilterGroupBy()
                                   }}
                                 />
                               </Match>
-                              <Match when={settings[category.key][i()].type === "histogram" && 
-                                          (settings[category.key][i()].visualizationType === "histogram" || !settings[category.key][i()].visualizationType)}>
+                              <Match when={setting.type === "histogram" && 
+                                          (setting.visualizationType === "histogram" || !setting.visualizationType)}>
                                 <Histogram
                                   data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
                                   filterSettings={{
-                                    ...settings[category.key][i()],
+                                    ...setting,
                                     groupBy: currentFilterGroupBy()
                                   }}
                                   additionalAxes={category.additionalAxes}
                                 />
                               </Match>
-                              <Match when={settings[category.key][i()].type === "histogram" && 
-                                          settings[category.key][i()].visualizationType === "spatial"}>
+                              <Match when={setting.type === "histogram" && 
+                                          setting.visualizationType === "spatial"}>
                                 <ScatterPlot
                                   data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
                                   filterSettings={{
-                                    ...settings[category.key][i()],
+                                    ...setting,
                                     groupBy: currentFilterGroupBy()
                                   }}
                                   additionalAxes={category.additionalAxes}
-                                  colorFieldName={settings[category.key][i()].field}
+                                  colorFieldName={setting.field}
                                 />
                               </Match>
                             </Switch>
                             <FilterSettingsForm
-                              filterSettings={settings[category.key][i()]}
+                              filterSettings={setting}
                               updateFilterSettings={(fn) =>
                                 setSettings(category.key, i(), produce(fn))
                               }
