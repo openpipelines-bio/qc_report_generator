@@ -36,11 +36,8 @@ const App: Component = () => {
   // Add a new state to store the applied filter settings
   const [appliedFilterSettings, setAppliedFilterSettings] = createStore<Settings>({});
 
+  // create form
   const form = createSettingsForm();
-
-  const globalVisualization = form.useStore(state => state.values.globalVisualization);
-  const selectedSamples = form.useStore(state => state.values.sampleSelection.selectedSamples);
-
 
   // read data in memory
   createEffect(async () => {
@@ -88,6 +85,7 @@ const App: Component = () => {
   });
 
   // Use the imported filter function
+  const selectedSamples = form.useStore(state => state.values.sampleSelection.selectedSamples);
   const filteredData = createMemo(() => {
     return filterData(data(), selectedSamples());
   });
@@ -274,6 +272,8 @@ const App: Component = () => {
               <div class="grid grid-cols-1 gap-4">
                 <For each={settings[category.key]}>
                   {(setting, i) => {
+                    const globalVisualization = form.useStore(state => state.values.globalVisualization);
+
                     // Extract the groupBy logic into a reactive memo
                     const currentFilterGroupBy = createMemo(() => {
                       if (category.key === "metrics_cellranger_stats") {
