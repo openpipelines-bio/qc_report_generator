@@ -88,14 +88,12 @@ const App: Component = () => {
 
   // Modify the fullyFilteredData memo to use the applied settings instead of the current settings
   const fullyFilteredData = createMemo(() => {
-    if (!filters().enabled) {
-      // If filters aren't applied, just return the sample-filtered data
-      return filteredData();
-    }
-    
-    // Start with the sample-filtered data
     const sampleFiltered = filteredData();
+
     if (!sampleFiltered) return undefined;
+    if (!filters().enabled) {
+      return sampleFiltered;
+    }
     
     // Copy the data structure
     const result = {...sampleFiltered};
