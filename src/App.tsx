@@ -31,13 +31,10 @@ const App: Component = () => {
   const [reportStructure, setReportStructure] = createSignal<ReportStructure>({categories: []});
   const [data, setData] = createSignal<RawData>();
 
-  const [filtersApplied, setFiltersApplied] = createSignal(false);
-
-  // Add a new state to store the applied filter settings
-  const [appliedFilterSettings, setAppliedFilterSettings] = createStore<Settings>({});
-
   // create form
   const form = createSettingsForm();
+
+  const filters = form.useStore(state => state.values.filters);
 
   // read data in memory
   createEffect(async () => {
@@ -92,7 +89,7 @@ const App: Component = () => {
 
   // Modify the fullyFilteredData memo to use the applied settings instead of the current settings
   const fullyFilteredData = createMemo(() => {
-    if (!filtersApplied()) {
+    if (!filters().enabled) {
       // If filters aren't applied, just return the sample-filtered data
       return filteredData();
     }
@@ -105,7 +102,7 @@ const App: Component = () => {
     const result = {...sampleFiltered};
     
     // Get cell QC filter settings from applied settings, not live settings
-    const cellFilters = appliedFilterSettings.cell_rna_stats || [];
+    const cellFilters = filters().settings.cell_rna_stats || [];
     
     // Get the cell IDs that pass QC filters using the helper function
     const cellsData = sampleFiltered.cell_rna_stats;
@@ -363,7 +360,7 @@ const App: Component = () => {
                                 </Match>
                                 <Match when={setting.type === "bar"}>
                                   <BarPlot
-                                    data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
+                                    data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
                                     filterSettings={{
                                       ...setting,
                                       groupBy: currentFilterGroupBy()
@@ -373,7 +370,7 @@ const App: Component = () => {
                                 <Match when={setting.type === "histogram" && 
                                             (setting.visualizationType === "histogram" || !setting.visualizationType)}>
                                   <Histogram
-                                    data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
+                                    data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
                                     filterSettings={{
                                       ...setting,
                                       groupBy: currentFilterGroupBy()
@@ -384,7 +381,7 @@ const App: Component = () => {
                                 <Match when={setting.type === "histogram" && 
                                             setting.visualizationType === "spatial"}>
                                   <ScatterPlot
-                                    data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
+                                    data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
                                     filterSettings={{
                                       ...setting,
                                       groupBy: currentFilterGroupBy()
@@ -399,7 +396,7 @@ const App: Component = () => {
                                 updateFilterSettings={(fn) =>
                                   setSettings(category.key, i(), produce(fn))
                                 }
-                                data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
+                                data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
                                 globalGroupBy={category.key === "metrics_cellranger_stats" ? undefined : (globalVisualization().groupingEnabled ? globalVisualization().groupBy : undefined)}
                                 forceGroupBy={category.key === "metrics_cellranger_stats" ? "sample_id" : undefined}
                                 isGlobalGroupingEnabled={globalVisualization().groupingEnabled}
@@ -424,26 +421,36 @@ const App: Component = () => {
           <Show when={data()} fallback={<p># Cells after filtering: ...</p>}>
             <p># Cells after filtering: {qcPass()}</p>
             <div class="mt-4 flex gap-2">
-              <button 
-                onClick={() => {
-                  // Take a snapshot of the current settings and save it as the applied settings
-                  setAppliedFilterSettings(JSON.parse(JSON.stringify(settings)));
-                  setFiltersApplied(true);
-                }}
-                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                Apply Filters to Plots
-              </button>
-              
-              <button 
-                onClick={() => {
-                  setFiltersApplied(false);
-                  // No need to clear applied settings - they'll be ignored when filtersApplied is false
-                }}
-                class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
-              >
-                Reset to Default View
-              </button>
+              <form.Field name="filters">
+                {(field) => (
+                  <button 
+                    onClick={() => {
+                      // Take a snapshot of the current settings and save it as the applied settings
+                      field().handleChange({
+                        enabled: true,
+                        settings: JSON.parse(JSON.stringify(settings))
+                      });
+                    }}
+                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Apply Filters to Plots
+                  </button>
+                )}
+              </form.Field>
+              <form.Field name="filters.enabled">
+                {(field) => (
+                  <button 
+                    onClick={() => {
+                      field().handleChange(false);
+                      // No need to clear applied settings - they'll be ignored when filtersApplied is false
+                    }}
+                    class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                    disabled={field().state.value === false}
+                  >
+                    Reset to Default View
+                  </button>
+                )}
+              </form.Field>
               
               <button 
                 onClick={exportFiltersAsYaml}
@@ -452,7 +459,7 @@ const App: Component = () => {
                 Export Filters as YAML
               </button>
               
-              {filtersApplied() && (
+              {filters().enabled && (
                 <p class="text-sm text-green-600 flex items-center">
                   ✓ Filters applied - Plots show only cells that pass all thresholds
                 </p>
@@ -471,7 +478,7 @@ const App: Component = () => {
               <div>
                 <H3>{category.name}</H3>
                 <Show when={data()}>
-                  <DataSummaryTable data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]} />
+                  <DataSummaryTable data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]} />
                 </Show>
               </div>
             )}
