@@ -312,7 +312,7 @@ const App: Component = () => {
                               <div class="absolute inset-0 flex w-full h-full">
                                 <div 
                                   class="flex items-center justify-center w-1/2 cursor-pointer"
-                                  onClick={() => setSettings(category.key, i(), { ...setting, visualizationType: 'histogram' })}
+                                  onClick={() => setSettings(category.key, i(), "visualizationType", "histogram" )}
                                 >
                                   <span 
                                     class={`text-sm font-medium transition-colors duration-200 ${
@@ -325,7 +325,7 @@ const App: Component = () => {
                                 
                                 <div 
                                   class="flex items-center justify-center w-1/2 cursor-pointer"
-                                  onClick={() => setSettings(category.key, i(), { ...setting, visualizationType: 'spatial' })}
+                                  onClick={() => setSettings(category.key, i(), "visualizationType", "spatial" )}
                                 >
                                   <span 
                                     class={`text-sm font-medium transition-colors duration-200 ${
