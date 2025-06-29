@@ -359,7 +359,7 @@ const App: Component = () => {
                                 </Match>
                                 <Match when={setting.type === "bar"}>
                                   <BarPlot
-                                    data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
+                                    data={filteredData()![category.key]}
                                     filterSettings={{
                                       ...setting,
                                       groupBy: currentFilterGroupBy()
@@ -369,7 +369,7 @@ const App: Component = () => {
                                 <Match when={setting.type === "histogram" && 
                                             (setting.visualizationType === "histogram" || !setting.visualizationType)}>
                                   <Histogram
-                                    data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
+                                    data={filteredData()![category.key]}
                                     filterSettings={{
                                       ...setting,
                                       groupBy: currentFilterGroupBy()
@@ -380,7 +380,7 @@ const App: Component = () => {
                                 <Match when={setting.type === "histogram" && 
                                             setting.visualizationType === "spatial"}>
                                   <ScatterPlot
-                                    data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
+                                    data={filteredData()![category.key]}
                                     filterSettings={{
                                       ...setting,
                                       groupBy: currentFilterGroupBy()
@@ -395,7 +395,7 @@ const App: Component = () => {
                                 updateFilterSettings={(fn) =>
                                   setSettings(category.key, i(), produce(fn))
                                 }
-                                data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
+                                data={filteredData()![category.key]}
                                 globalGroupBy={category.key === "metrics_cellranger_stats" ? undefined : (globalVisualization().groupingEnabled ? globalVisualization().groupBy : undefined)}
                                 forceGroupBy={category.key === "metrics_cellranger_stats" ? "sample_id" : undefined}
                                 isGlobalGroupingEnabled={globalVisualization().groupingEnabled}
