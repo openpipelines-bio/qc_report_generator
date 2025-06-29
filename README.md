@@ -18,9 +18,9 @@ Rscript scripts/generate_data.R
 Compress input data:
 
 ```bash
-pnpm run compress_data resources_test/sc_dataset/structure.json src/data/report_structure.ts
+pnpm run compress_data resources_test/xenium_dataset/structure.json src/data/report_structure.ts
 
-pnpm run compress_data resources_test/sc_dataset/data.json src/data/dataset.ts
+pnpm run compress_data resources_test/xenium_dataset/data.json src/data/dataset.ts
 ```
 
 Generate report

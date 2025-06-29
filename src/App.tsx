@@ -8,7 +8,7 @@ import {
   type Component,
 } from "solid-js";
 import { createStore, produce } from "solid-js/store";
-import { ReportStructure, FilterSettings, RawData } from "./types";
+import { ReportStructure, FilterSettings, RawData, Settings } from "./types";
 import * as _ from "lodash";
 import { H1, H2, H3 } from "./components/heading";
 import { getData, getReportStructure } from "./lib/get-data";
@@ -20,7 +20,7 @@ import { ScatterPlot } from "./components/scatterplot";
 import { createMemo } from "solid-js";
 import { SampleFilterForm } from "./components/app/sample-filter-form";
 import { filterData, calculateQcPassCells, getPassingCellIndices } from "./lib/data-filters";
-import { transformSampleMetadata, hasSpatialCoordinates } from "./lib/sample-utils";
+import { transformSampleMetadata } from "./lib/sample-utils";
 import { createSettingsForm, SettingsFormProvider } from "./components/app/settings-form";
 import { GlobalVisualizationSettings } from "./components/app/global-visualization-settings";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./components/ui/collapsible";
@@ -47,6 +47,12 @@ const App: Component = () => {
     // make sure to set the initial selected samples
     const sampleIds = data.sample_summary_stats?.columns.find(col => col.name === "sample_id")?.categories || [];
     form.setFieldValue("sampleSelection.selectedSamples", sampleIds);
+
+    // check if the data has spatial coordinates
+    // TODO: allow users to select which coordinates to use
+    const columnNames = data.cell_rna_stats?.columns.map(c => c.name) || [];
+    const hasSpatialCoordinates = columnNames.includes("x_coord") && columnNames.includes("y_coord");
+    form.setFieldValue("hexbin.enabled", hasSpatialCoordinates);
   });
 
   const sampleMetadata = createMemo(() => {
@@ -99,7 +105,7 @@ const App: Component = () => {
     const result = {...sampleFiltered};
     
     // Get cell QC filter settings from applied settings, not live settings
-    const cellFilters = filters().settings.cell_rna_stats || [];
+    const cellFilters = filters().appliedSettings.cell_rna_stats || [];
     
     // Get the cell IDs that pass QC filters using the helper function
     const cellsData = sampleFiltered.cell_rna_stats;
@@ -121,10 +127,102 @@ const App: Component = () => {
     return result;
   });
 
+  const hexbin = form.useStore(state => state.values.hexbin);
+  const hexBinnedData = createMemo(() => {
+    if (!data()) return undefined;
+    if (!hexbin().enabled) return undefined;
+
+    // Get the x and y coordinates from the cell_rna_stats data
+    const xCol = data()!.cell_rna_stats.columns.find(col => col.name === hexbin().xCol);
+    const yCol = data()!.cell_rna_stats.columns.find(col => col.name === hexbin().yCol);
+
+    if (!xCol || !yCol) return undefined;
+    if (xCol.dtype !== "numeric" || yCol.dtype !== "numeric") {
+      console.error("Hexbin requires numeric coordinates");
+      return undefined;
+    }
+    const xCoord = xCol!.data as number[];
+    const yCoord = yCol!.data as number[];
+
+    if (!xCoord || !yCoord) return undefined;
+
+    const xMin = _.min(xCoord)!;
+    const xMax = _.max(xCoord)!;
+    const yMin = _.min(yCoord)!;
+    const yMax = _.max(yCoord)!;
+    const numBinsX = hexbin().numBinsX;
+    const numBinsY = hexbin().numBinsY;
+    const binWidthX = (xMax - xMin) / numBinsX;
+    const binWidthY = (yMax - yMin) / numBinsY;
+
+    // per bin, compute the indices of the cells that fall into that bin
+    const binIndices: number[][] = Array.from({ length: numBinsX * numBinsY }, () => []);
+    for (let i = 0; i < xCoord.length; i++) {
+      const xBin = Math.floor((xCoord[i] - xMin) / binWidthX);
+      const yBin = Math.floor((yCoord[i] - yMin) / binWidthY);
+      if (xBin >= 0 && xBin < numBinsX && yBin >= 0 && yBin < numBinsY) {
+        binIndices[yBin * numBinsX + xBin].push(i);
+      }
+    }
+
+    // compute new columns for each bin
+    // For each column in cell_rna_stats, compute the mean value in each bin
+    const hexBinnedColumns = data()!.cell_rna_stats.columns.map(col => {
+      if (col.dtype === "categorical") {
+        // compute mode for categorical columns
+        const modePerBin: (number | undefined)[] = Array.from({ length: numBinsX * numBinsY }, () => undefined);
+        for (const [i, indices] of binIndices.entries()) {
+          const values = indices.map(i => col.data[i]) as number[];
+          if (values.length === 0) {
+            continue;
+          }
+          const mode = _.flow(
+            _.countBy,
+            _.entries,
+            _.partialRight(_.maxBy, _.last),
+            _.head
+          )(values)
+          modePerBin[i] = mode as number | undefined;
+        }
+        return {
+          ...col,
+          data: modePerBin,
+        };
+      } else if (col.dtype === "numeric" || col.dtype === "integer" || col.dtype === "boolean") {
+        // compute mean for numeric columns
+        const meanPerBin: (number | undefined)[] = Array.from({ length: numBinsX * numBinsY }, () => undefined);
+        for (const [i, indices] of binIndices.entries()) {
+          const values = indices.map(i => col.data[i]) as number[];
+          if (values.length === 0) {
+            continue;
+          }
+          const mean = _.mean(values);
+          meanPerBin[i] = mean;
+        }
+        return {
+          ...col,
+          data: meanPerBin,
+        };
+      }
+    });
+
+    // compute resulting rawdata structure
+    return {
+      num_rows: hexbin().numBinsX * hexbin().numBinsY,
+      num_columns: data()!.cell_rna_stats.num_columns + 1,
+      columns: [
+        {
+          name: "num_cells",
+          dtype: "integer",
+          data: binIndices.map(indices => indices.length),
+        },
+        ...hexBinnedColumns,
+      ],
+    }
+  })
+
+
   // initialise filtersettings
-  type Settings = {
-    [key in keyof RawData]: FilterSettings[];
-  };
   const [settings, setSettings] = createStore<Settings>(
     Object.fromEntries(Object.keys(data() ?? {}).map((key) => [key, []])),
   );
@@ -289,7 +387,7 @@ const App: Component = () => {
                           {/* Add the visualization toggle in the top-right corner */}
                           <Show when={category.key === "cell_rna_stats" && 
                                     setting.type === "histogram" && 
-                                    hasSpatialCoordinates(data()?.cell_rna_stats)}>
+                                    hexbin().enabled}>
                             <div 
                               class="relative rounded-full bg-gray-200 shadow-sm overflow-hidden"
                               style={{ height: "32px", width: "180px" }}
@@ -425,7 +523,7 @@ const App: Component = () => {
                       // Take a snapshot of the current settings and save it as the applied settings
                       field().handleChange({
                         enabled: true,
-                        settings: JSON.parse(JSON.stringify(settings))
+                        appliedSettings: JSON.parse(JSON.stringify(settings))
                       });
                     }}
                     class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"

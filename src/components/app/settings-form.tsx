@@ -12,7 +12,14 @@ export type SettingsState = {
   }
   filters: {
     enabled: boolean;
-    settings: Settings;
+    appliedSettings: Settings;
+  }
+  hexbin: {
+    enabled: boolean;
+    xCol: string;
+    yCol: string;
+    numBinsX: number;
+    numBinsY: number;
   }
 }
 
@@ -26,7 +33,15 @@ export const defaultSettings: SettingsState = {
   },
   filters: {
     enabled: false,
-    settings: {}
+    appliedSettings: {}
+  },
+
+  hexbin: {
+    enabled: false,
+    xCol: "x_coord",
+    yCol: "y_coord",
+    numBinsX: 50,
+    numBinsY: 50,
   }
 }
 
