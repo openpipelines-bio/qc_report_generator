@@ -20,26 +20,20 @@ import { ScatterPlot } from "./components/scatterplot";
 import { createMemo } from "solid-js";
 import { SampleFilterForm } from "./components/app/sample-filter-form";
 import { filterData, calculateQcPassCells, getPassingCellIndices } from "./lib/data-filters";
-import { transformSampleMetadata } from "./lib/sample-utils";
-import { hasSpatialCoordinates } from "./lib/plots";
+import { transformSampleMetadata, hasSpatialCoordinates } from "./lib/sample-utils";
 import { createSettingsForm, SettingsFormProvider } from "./components/app/settings-form";
 import { GlobalVisualizationSettings } from "./components/app/global-visualization-settings";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./components/ui/collapsible";
 
 
 const App: Component = () => {
   const [reportStructure, setReportStructure] = createSignal<ReportStructure>({categories: []});
   const [data, setData] = createSignal<RawData>();
 
-  const [filtersApplied, setFiltersApplied] = createSignal(false);
-
-  // Add a new state to store the applied filter settings
-  const [appliedFilterSettings, setAppliedFilterSettings] = createStore<Settings>({});
-
+  // create form
   const form = createSettingsForm();
 
-  const globalVisualization = form.useStore(state => state.values.globalVisualization);
-  const selectedSamples = form.useStore(state => state.values.sampleSelection.selectedSamples);
-
+  const filters = form.useStore(state => state.values.filters);
 
   // read data in memory
   createEffect(async () => {
@@ -87,26 +81,25 @@ const App: Component = () => {
   });
 
   // Use the imported filter function
+  const selectedSamples = form.useStore(state => state.values.sampleSelection.selectedSamples);
   const filteredData = createMemo(() => {
     return filterData(data(), selectedSamples());
   });
 
   // Modify the fullyFilteredData memo to use the applied settings instead of the current settings
   const fullyFilteredData = createMemo(() => {
-    if (!filtersApplied()) {
-      // If filters aren't applied, just return the sample-filtered data
-      return filteredData();
-    }
-    
-    // Start with the sample-filtered data
     const sampleFiltered = filteredData();
+
     if (!sampleFiltered) return undefined;
+    if (!filters().enabled) {
+      return sampleFiltered;
+    }
     
     // Copy the data structure
     const result = {...sampleFiltered};
     
     // Get cell QC filter settings from applied settings, not live settings
-    const cellFilters = appliedFilterSettings.cell_rna_stats || [];
+    const cellFilters = filters().settings.cell_rna_stats || [];
     
     // Get the cell IDs that pass QC filters using the helper function
     const cellsData = sampleFiltered.cell_rna_stats;
@@ -244,6 +237,7 @@ const App: Component = () => {
               <H2>{category.name}</H2>
               
               {/* Add descriptive text based on category */}
+              {/* TODO: move descriptive text into the report structure itself */}
               <div class="mb-4 text-gray-700">
                 {category.key === "sample_summary_stats" && (
                   <p>
@@ -271,7 +265,9 @@ const App: Component = () => {
               
               <div class="grid grid-cols-1 gap-4">
                 <For each={settings[category.key]}>
-                  {(_, i) => {
+                  {(setting, i) => {
+                    const globalVisualization = form.useStore(state => state.values.globalVisualization);
+
                     // Extract the groupBy logic into a reactive memo
                     const currentFilterGroupBy = createMemo(() => {
                       if (category.key === "metrics_cellranger_stats") {
@@ -279,20 +275,20 @@ const App: Component = () => {
                       } else if (globalVisualization().groupingEnabled) {
                         return globalVisualization().groupBy; // Use global setting when enabled
                       } else {
-                        return settings[category.key][i()].groupBy || "sample_id"; // Use plot's own setting or default
+                        return setting.groupBy || "sample_id"; // Use plot's own setting or default
                       }
                     });
                     
-                    const [isExpanded, setIsExpanded] = createSignal(true); // Start expanded
+                    const [isPlotExpanded, setIsPlotExpanded] = createSignal(true);
                     
                     return (
                       <div>
                         <div class="flex justify-between items-center mb-2">
-                          <H3>{settings[category.key][i()].label}</H3>
+                          <H3>{setting.label}</H3>
                           
                           {/* Add the visualization toggle in the top-right corner */}
                           <Show when={category.key === "cell_rna_stats" && 
-                                    settings[category.key][i()].type === "histogram" && 
+                                    setting.type === "histogram" && 
                                     hasSpatialCoordinates(data()?.cell_rna_stats)}>
                             <div 
                               class="relative rounded-full bg-gray-200 shadow-sm overflow-hidden"
@@ -305,7 +301,7 @@ const App: Component = () => {
                                   height: "calc(100% - 4px)",
                                   top: "2px",
                                   left: "2px",
-                                  transform: settings[category.key][i()].visualizationType !== 'spatial' 
+                                  transform: setting.visualizationType !== 'spatial' 
                                     ? 'translateX(0)' 
                                     : 'translateX(calc(100% + 4px))'
                                 }}
@@ -314,11 +310,11 @@ const App: Component = () => {
                               <div class="absolute inset-0 flex w-full h-full">
                                 <div 
                                   class="flex items-center justify-center w-1/2 cursor-pointer"
-                                  onClick={() => setSettings(category.key, i(), { ...settings[category.key][i()], visualizationType: 'histogram' })}
+                                  onClick={() => setSettings(category.key, i(), "visualizationType", "histogram" )}
                                 >
                                   <span 
                                     class={`text-sm font-medium transition-colors duration-200 ${
-                                      settings[category.key][i()].visualizationType !== 'spatial' ? 'text-gray-800' : 'text-gray-500'
+                                      setting.visualizationType !== 'spatial' ? 'text-gray-800' : 'text-gray-500'
                                     }`}
                                   >
                                     Histogram
@@ -327,11 +323,11 @@ const App: Component = () => {
                                 
                                 <div 
                                   class="flex items-center justify-center w-1/2 cursor-pointer"
-                                  onClick={() => setSettings(category.key, i(), { ...settings[category.key][i()], visualizationType: 'spatial' })}
+                                  onClick={() => setSettings(category.key, i(), "visualizationType", "spatial" )}
                                 >
                                   <span 
                                     class={`text-sm font-medium transition-colors duration-200 ${
-                                      settings[category.key][i()].visualizationType === 'spatial' ? 'text-gray-800' : 'text-gray-500'
+                                      setting.visualizationType === 'spatial' ? 'text-gray-800' : 'text-gray-500'
                                     }`}
                                   >
                                     Spatial
@@ -342,72 +338,70 @@ const App: Component = () => {
                           </Show>
                         </div>
                         
-                        <Show when={settings[category.key][i()].description}>
-                          <p class="text-gray-600 text-sm mb-2">{settings[category.key][i()].description}</p>
+                        <Show when={setting.description}>
+                          <p class="text-gray-600 text-sm mb-2">{setting.description}</p>
                         </Show>
 
-                        <button 
-                          onClick={() => setIsExpanded(!isExpanded())}
-                          class="w-full px-4 py-2 text-left text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md flex justify-between items-center mb-2"
-                        >
-                          <span>Plot Visibility</span>
-                          <span class="transition-transform duration-200" classList={{ "rotate-180": !isExpanded() }}>
-                            ▼
-                          </span>
-                        </button>
-                        
-                        {isExpanded() && (
-                          <div class="flex flex-col space-y-2">
-                            <Switch>
-                              <Match when={!data()}>
-                                <div>Loading...</div>
-                              </Match>
-                              <Match when={settings[category.key][i()].type === "bar"}>
-                                <BarPlot
-                                  data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
-                                  filterSettings={{
-                                    ...settings[category.key][i()],
-                                    groupBy: currentFilterGroupBy()
-                                  }}
-                                />
-                              </Match>
-                              <Match when={settings[category.key][i()].type === "histogram" && 
-                                          (settings[category.key][i()].visualizationType === "histogram" || !settings[category.key][i()].visualizationType)}>
-                                <Histogram
-                                  data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
-                                  filterSettings={{
-                                    ...settings[category.key][i()],
-                                    groupBy: currentFilterGroupBy()
-                                  }}
-                                  additionalAxes={category.additionalAxes}
-                                />
-                              </Match>
-                              <Match when={settings[category.key][i()].type === "histogram" && 
-                                          settings[category.key][i()].visualizationType === "spatial"}>
-                                <ScatterPlot
-                                  data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
-                                  filterSettings={{
-                                    ...settings[category.key][i()],
-                                    groupBy: currentFilterGroupBy()
-                                  }}
-                                  additionalAxes={category.additionalAxes}
-                                  colorFieldName={settings[category.key][i()].field}
-                                />
-                              </Match>
-                            </Switch>
-                            <FilterSettingsForm
-                              filterSettings={settings[category.key][i()]}
-                              updateFilterSettings={(fn) =>
-                                setSettings(category.key, i(), produce(fn))
-                              }
-                              data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]}
-                              globalGroupBy={category.key === "metrics_cellranger_stats" ? undefined : (globalVisualization().groupingEnabled ? globalVisualization().groupBy : undefined)}
-                              forceGroupBy={category.key === "metrics_cellranger_stats" ? "sample_id" : undefined}
-                              isGlobalGroupingEnabled={globalVisualization().groupingEnabled}
-                              category={category.key} // Pass the category key
-                            />
-                          </div>
-                        )}
+                        <Collapsible open={isPlotExpanded()} onOpenChange={setIsPlotExpanded}>
+                          <CollapsibleTrigger
+                            class="w-full px-4 py-2 text-left text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md flex justify-between items-center mb-2"
+                          >
+                            Plot Visibility 
+                            <span class="transition-transform duration-200" classList={{ "rotate-180": !isPlotExpanded() }}>▼</span>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div class="flex flex-col space-y-2">
+                              <Switch>
+                                <Match when={!data()}>
+                                  <div>Loading...</div>
+                                </Match>
+                                <Match when={setting.type === "bar"}>
+                                  <BarPlot
+                                    data={filteredData()![category.key]}
+                                    filterSettings={{
+                                      ...setting,
+                                      groupBy: currentFilterGroupBy()
+                                    }}
+                                  />
+                                </Match>
+                                <Match when={setting.type === "histogram" && 
+                                            (setting.visualizationType === "histogram" || !setting.visualizationType)}>
+                                  <Histogram
+                                    data={filteredData()![category.key]}
+                                    filterSettings={{
+                                      ...setting,
+                                      groupBy: currentFilterGroupBy()
+                                    }}
+                                    additionalAxes={category.additionalAxes}
+                                  />
+                                </Match>
+                                <Match when={setting.type === "histogram" && 
+                                            setting.visualizationType === "spatial"}>
+                                  <ScatterPlot
+                                    data={filteredData()![category.key]}
+                                    filterSettings={{
+                                      ...setting,
+                                      groupBy: currentFilterGroupBy()
+                                    }}
+                                    additionalAxes={category.additionalAxes}
+                                    colorFieldName={setting.field}
+                                  />
+                                </Match>
+                              </Switch>
+                              <FilterSettingsForm
+                                filterSettings={setting}
+                                updateFilterSettings={(fn) =>
+                                  setSettings(category.key, i(), produce(fn))
+                                }
+                                data={filteredData()![category.key]}
+                                globalGroupBy={category.key === "metrics_cellranger_stats" ? undefined : (globalVisualization().groupingEnabled ? globalVisualization().groupBy : undefined)}
+                                forceGroupBy={category.key === "metrics_cellranger_stats" ? "sample_id" : undefined}
+                                isGlobalGroupingEnabled={globalVisualization().groupingEnabled}
+                                category={category.key} // Pass the category key
+                              />
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
                       </div>
                     );
                   }}
@@ -424,26 +418,36 @@ const App: Component = () => {
           <Show when={data()} fallback={<p># Cells after filtering: ...</p>}>
             <p># Cells after filtering: {qcPass()}</p>
             <div class="mt-4 flex gap-2">
-              <button 
-                onClick={() => {
-                  // Take a snapshot of the current settings and save it as the applied settings
-                  setAppliedFilterSettings(JSON.parse(JSON.stringify(settings)));
-                  setFiltersApplied(true);
-                }}
-                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                Apply Filters to Plots
-              </button>
-              
-              <button 
-                onClick={() => {
-                  setFiltersApplied(false);
-                  // No need to clear applied settings - they'll be ignored when filtersApplied is false
-                }}
-                class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
-              >
-                Reset to Default View
-              </button>
+              <form.Field name="filters">
+                {(field) => (
+                  <button 
+                    onClick={() => {
+                      // Take a snapshot of the current settings and save it as the applied settings
+                      field().handleChange({
+                        enabled: true,
+                        settings: JSON.parse(JSON.stringify(settings))
+                      });
+                    }}
+                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Apply Filters to Plots
+                  </button>
+                )}
+              </form.Field>
+              <form.Field name="filters.enabled">
+                {(field) => (
+                  <button 
+                    onClick={() => {
+                      field().handleChange(false);
+                      // No need to clear applied settings - they'll be ignored when filtersApplied is false
+                    }}
+                    class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                    disabled={field().state.value === false}
+                  >
+                    Reset to Default View
+                  </button>
+                )}
+              </form.Field>
               
               <button 
                 onClick={exportFiltersAsYaml}
@@ -452,7 +456,7 @@ const App: Component = () => {
                 Export Filters as YAML
               </button>
               
-              {filtersApplied() && (
+              {filters().enabled && (
                 <p class="text-sm text-green-600 flex items-center">
                   ✓ Filters applied - Plots show only cells that pass all thresholds
                 </p>
@@ -471,7 +475,7 @@ const App: Component = () => {
               <div>
                 <H3>{category.name}</H3>
                 <Show when={data()}>
-                  <DataSummaryTable data={(filtersApplied() ? fullyFilteredData() : filteredData())![category.key]} />
+                  <DataSummaryTable data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]} />
                 </Show>
               </div>
             )}
