@@ -24,6 +24,7 @@ import { transformSampleMetadata } from "./lib/sample-utils";
 import { createSettingsForm, SettingsFormProvider } from "./components/app/settings-form";
 import { GlobalVisualizationSettings } from "./components/app/global-visualization-settings";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./components/ui/collapsible";
+import { HexbinPlot } from "~/components/hexbinplot";
 
 
 const App: Component = () => {
@@ -176,7 +177,16 @@ const App: Component = () => {
           ...col,
           data: Array.from({ length: numBinsX * numBinsY }, (_, i) => {
             const xBin = i % numBinsX;
-            return xMin + (xBin + 0.5) * binWidthX;
+            const yBin = Math.floor(i / numBinsX);
+            // Offset every other row by half a bin width
+            const offset = yBin % 2 === 0 ? 0 : binWidthX / 2;
+            
+            // Add a log to verify the offset is working
+            if (i < 10) {
+              console.log(`Bin ${i}: xBin=${xBin}, yBin=${yBin}, offset=${offset}`);
+            }
+            
+            return xMin + offset + (xBin + 0.5) * binWidthX;
           }),
         } as RawDataColumn];
       }
@@ -236,20 +246,18 @@ const App: Component = () => {
       return [];
     });
 
+    // Add a cell_count column
+    const cellCountColumn: RawDataColumn = {
+      name: "cell_count",
+      dtype: "integer",
+      data: binIndices.map(indices => indices.length)
+    };
+
     // compute resulting rawdata structure
     const hexbinCategory: RawDataCategory = {
       num_rows: hexbin().numBinsX * hexbin().numBinsY,
-      num_columns: data()!.cell_rna_stats.num_columns,
-      columns: hexBinnedColumns,
-      // num_columns: data()!.cell_rna_stats.num_columns + 1,
-      // columns: [
-      //   {
-      //     name: "num_cells",
-      //     dtype: "integer",
-      //     data: binIndices.map(indices => indices.length),
-      //   },
-      //   ...hexBinnedColumns
-      // ],
+      num_columns: data()!.cell_rna_stats.num_columns + 1, // +1 for cell_count
+      columns: [...hexBinnedColumns, cellCountColumn],
     }
 
     return hexbinCategory;
@@ -507,17 +515,30 @@ const App: Component = () => {
                                     additionalAxes={category.additionalAxes}
                                   />
                                 </Match>
-                                <Match when={setting.type === "histogram" && 
-                                            setting.visualizationType === "spatial"}>
-                                  <ScatterPlot
-                                    data={hexBinnedData()!}
-                                    filterSettings={{
-                                      ...setting,
-                                      groupBy: currentFilterGroupBy()
-                                    }}
-                                    additionalAxes={category.additionalAxes}
-                                    colorFieldName={setting.field}
-                                  />
+                                {/* Spatial visualization with conditional hexbin */}
+                                <Match when={setting.type === "histogram" && setting.visualizationType === "spatial"}>
+                                  <Show when={hexbin().enabled && hexBinnedData()}>
+                                    <HexbinPlot
+                                      data={hexBinnedData()!}
+                                      filterSettings={{
+                                        ...setting,
+                                        groupBy: currentFilterGroupBy()
+                                      }}
+                                      colorFieldName={setting.field}
+                                    />
+                                  </Show>
+                                  
+                                  <Show when={!hexbin().enabled || !hexBinnedData()}>
+                                    <ScatterPlot
+                                      data={filteredData()?.cell_rna_stats!}
+                                      filterSettings={{
+                                        ...setting,
+                                        groupBy: currentFilterGroupBy()
+                                      }}
+                                      additionalAxes={category.additionalAxes}
+                                      colorFieldName={setting.field}
+                                    />
+                                  </Show>
                                 </Match>
                               </Switch>
                               <FilterSettingsForm
