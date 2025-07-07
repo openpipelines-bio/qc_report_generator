@@ -215,7 +215,7 @@ export function HexbinPlot(props: HexbinPlotProps) {
             title: props.filterSettings.label || colorField() || "",
             titleside: "right",
             thickness: 15,
-            len: 0.75,
+            len: 0.25,
             y: 0.5,
             yanchor: 'middle'
           } : undefined,
