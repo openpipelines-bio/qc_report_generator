@@ -34,9 +34,7 @@ export function HexbinPlot(props: HexbinPlotProps) {
     const cellCounts = countColumn ? countColumn.data as number[] : Array(xValues.length).fill(1);
     
     // Filter out bins with 0 cells
-    const filteredIndices = cellCounts.map((count, idx) => ({ count, idx }))
-                                      .filter(item => item.count > 0)
-                                      .map(item => item.idx);
+    const filteredIndices = cellCounts.map((count, idx) => idx)
     
     // Apply the filter to all data arrays
     const filteredX = filteredIndices.map(i => xValues[i]);
