@@ -130,14 +130,14 @@ const App: Component = () => {
 
   const hexbin = form.useStore(state => state.values.hexbin);
   const hexBinnedData = createMemo(() => {
-    // Use filteredData() instead of data()
-    const filtered = filteredData();
-    if (!filtered) return undefined;
+    // Use the right data source based on filter status
+    const dataSource = filters().enabled ? fullyFilteredData() : filteredData();
+    if (!dataSource) return undefined;
     if (!hexbin().enabled) return undefined;
 
     // Get the x and y coordinates from the cell_rna_stats data
-    const xCol = filtered.cell_rna_stats.columns.find(col => col.name === hexbin().xCol);
-    const yCol = filtered.cell_rna_stats.columns.find(col => col.name === hexbin().yCol);
+    const xCol = dataSource.cell_rna_stats.columns.find(col => col.name === hexbin().xCol);
+    const yCol = dataSource.cell_rna_stats.columns.find(col => col.name === hexbin().yCol);
 
     if (!xCol || !yCol) return undefined;
     if (xCol.dtype !== "numeric" || yCol.dtype !== "numeric") {
@@ -170,7 +170,7 @@ const App: Component = () => {
 
     // compute new columns for each bin
     // For each column in cell_rna_stats, compute the mean value in each bin
-    const hexBinnedColumns = filtered.cell_rna_stats.columns.flatMap(col => {
+    const hexBinnedColumns = dataSource.cell_rna_stats.columns.flatMap(col => {
       // Now using filtered data
       // set x_coord and y_coord to the center of the bin
       if (col.name === "x_coord") {

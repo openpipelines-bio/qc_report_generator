@@ -2,7 +2,7 @@ import Plot from "@ralphsmith80/solid-plotly.js";
 import { Layout, PlotData } from "plotly.js-dist-min";
 import { plotlyConfig } from "~/lib/plots";
 import { FilterSettings, RawDataCategory } from "~/types";
-import { createMemo } from "solid-js";
+import { createMemo, Show } from "solid-js";
 
 type HexbinPlotProps = {
   data: RawDataCategory;
@@ -374,11 +374,18 @@ export function HexbinPlot(props: HexbinPlotProps) {
   });
   
   return (
-    <Plot
-      data={plotData()}
-      layout={plotLayout()}
-      config={plotlyConfig()}
-      style={{ width: "100%", height: "100%" }}
-    />
+    <>
+      <Show when={props.filterSettings.cutoffMin !== undefined || props.filterSettings.cutoffMax !== undefined}>
+        <div class="absolute top-2 right-2 z-10 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+          Filter applied: {props.filterSettings.field}
+        </div>
+      </Show>
+      <Plot
+        data={plotData()}
+        layout={plotLayout()}
+        config={plotlyConfig()}
+        style={{ width: "100%", height: "100%" }}
+      />
+    </>
   );
 }
