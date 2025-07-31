@@ -130,14 +130,14 @@ const App: Component = () => {
 
   const hexbin = form.useStore(state => state.values.hexbin);
   const hexBinnedData = createMemo(() => {
-    if (!data()) return undefined;
+    // Use filteredData() instead of data()
+    const filtered = filteredData();
+    if (!filtered) return undefined;
     if (!hexbin().enabled) return undefined;
 
-    // todo: const grouping = ... (get from global or plot settings)
-
     // Get the x and y coordinates from the cell_rna_stats data
-    const xCol = data()!.cell_rna_stats.columns.find(col => col.name === hexbin().xCol);
-    const yCol = data()!.cell_rna_stats.columns.find(col => col.name === hexbin().yCol);
+    const xCol = filtered.cell_rna_stats.columns.find(col => col.name === hexbin().xCol);
+    const yCol = filtered.cell_rna_stats.columns.find(col => col.name === hexbin().yCol);
 
     if (!xCol || !yCol) return undefined;
     if (xCol.dtype !== "numeric" || yCol.dtype !== "numeric") {
@@ -170,7 +170,8 @@ const App: Component = () => {
 
     // compute new columns for each bin
     // For each column in cell_rna_stats, compute the mean value in each bin
-    const hexBinnedColumns = data()!.cell_rna_stats.columns.flatMap(col => {
+    const hexBinnedColumns = filtered.cell_rna_stats.columns.flatMap(col => {
+      // Now using filtered data
       // set x_coord and y_coord to the center of the bin
       if (col.name === "x_coord") {
         return [{
@@ -497,7 +498,7 @@ const App: Component = () => {
                                 </Match>
                                 <Match when={setting.type === "bar"}>
                                   <BarPlot
-                                    data={filteredData()![category.key]}
+                                    data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
                                     filterSettings={{
                                       ...setting,
                                       groupBy: currentFilterGroupBy()
@@ -507,7 +508,7 @@ const App: Component = () => {
                                 <Match when={setting.type === "histogram" && 
                                             (setting.visualizationType === "histogram" || !setting.visualizationType)}>
                                   <Histogram
-                                    data={filteredData()![category.key]}
+                                    data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
                                     filterSettings={{
                                       ...setting,
                                       groupBy: currentFilterGroupBy()
@@ -530,7 +531,7 @@ const App: Component = () => {
                                   
                                   <Show when={!hexbin().enabled || !hexBinnedData()}>
                                     <ScatterPlot
-                                      data={filteredData()?.cell_rna_stats!}
+                                      data={(filters().enabled ? fullyFilteredData() : filteredData())?.cell_rna_stats!}
                                       filterSettings={{
                                         ...setting,
                                         groupBy: currentFilterGroupBy()
@@ -569,7 +570,7 @@ const App: Component = () => {
             <p># Cells before filtering: {data()!.cell_rna_stats.num_rows}</p>
           </Show>
           <Show when={data()} fallback={<p># Cells after filtering: ...</p>}>
-            <p># Cells after filtering: {qcPass()}</p>
+            <p># Cells after filtering: {filters().enabled ? qcPass() : data()!.cell_rna_stats.num_rows}</p>
             <div class="mt-4 flex gap-2">
               <form.Field name="filters">
                 {(field) => (
@@ -591,8 +592,21 @@ const App: Component = () => {
                 {(field) => (
                   <button 
                     onClick={() => {
+                      // First, disable filters
                       field().handleChange(false);
-                      // No need to clear applied settings - they'll be ignored when filtersApplied is false
+                      
+                      // Then reset all filter cutoffs in settings
+                      for (const categoryKey in settings) {
+                        settings[categoryKey].forEach((filter, index) => {
+                          setSettings(categoryKey, index, produce(s => {
+                            s.cutoffMin = undefined;
+                            s.cutoffMax = undefined;
+                          }));
+                        });
+                      }
+                      
+                      // Also reset the appliedSettings to ensure the form is consistent
+                      form.setFieldValue("filters.appliedSettings", JSON.parse(JSON.stringify(settings)));
                     }}
                     class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
                     disabled={field().state.value === false}
