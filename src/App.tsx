@@ -8,7 +8,7 @@ import {
   type Component,
 } from "solid-js";
 import { createStore, produce } from "solid-js/store";
-import { ReportStructure, FilterSettings, RawData, Settings, RawDataCategory, RawDataColumn } from "./types";
+import { ReportStructure, FilterSettings, RawData, Settings } from "./types";
 import * as _ from "lodash";
 import { H1, H2, H3 } from "./components/heading";
 import { getData, getReportStructure } from "./lib/get-data";
@@ -129,8 +129,10 @@ const App: Component = () => {
   });
 
   const hexbin = form.useStore(state => state.values.hexbin);
-  const hexBinnedData = createMemo(() => {
-    // Use the right data source based on filter status
+
+  const hexbinData = createMemo(() => {
+    // TODO: Could compute the hexbinIndices on the filteredData, and only apply the QC filtering afterwards to
+    // avoid recomputing the indices every time the filters change.
     const dataSource = filters().enabled ? fullyFilteredData() : filteredData();
     if (!dataSource) return undefined;
     if (!hexbin().enabled) return undefined;
@@ -160,112 +162,48 @@ const App: Component = () => {
     const binWidthY = (yMax - yMin) / numBinsY;
 
     // per bin, compute the indices of the cells that fall into that bin
-    const binIndices: number[][] = Array.from({ length: numBinsX * numBinsY }, () => []);
-    // TODO: this is a simple (rectangular) binning, not a hexagonal binning
-    for (let i = 0; i < xCoord.length; i++) {
-      const xBin = Math.floor((xCoord[i] - xMin) / binWidthX);
-      const yBin = Math.floor((yCoord[i] - yMin) / binWidthY);
-      if (xBin >= 0 && xBin < numBinsX && yBin >= 0 && yBin < numBinsY) {
-        binIndices[yBin * numBinsX + xBin].push(i);
-      }
-    }
+    console.log(`xMin: ${xMin}, xMax: ${xMax}, yMin: ${yMin}, yMax: ${yMax}, numBinsX: ${numBinsX}, numBinsY: ${numBinsY}, binWidthX: ${binWidthX}, binWidthY: ${binWidthY}`);
+    const bins = Array.from({ length: numBinsX * numBinsY }).map((_, i) => {
+      const xBin = i % numBinsX;
+      const yBin = Math.floor(i / numBinsX);
+      // Half width offset depending on even/odd row
+      const x = xMin + (xBin + (yBin % 2 === 0 ? 0 : 0.5)) * binWidthX;
+      const y = yMin + (yBin + 0.5) * binWidthY;
 
-    // compute new columns for each bin
-    // For each column in cell_rna_stats, compute the mean value in each bin
-    const hexBinnedColumns = dataSource.cell_rna_stats.columns.flatMap(col => {
-      // Now using filtered data
-      // set x_coord and y_coord to the center of the bin
-      if (col.name === "x_coord") {
-        return [{
-          ...col,
-          data: Array.from({ length: numBinsX * numBinsY }, (_, i) => {
-            const xBin = i % numBinsX;
-            const yBin = Math.floor(i / numBinsX);
-            // Offset every other row by half a bin width
-            const offset = yBin % 2 === 0 ? 0 : binWidthX / 2;
-            
-            // Add a log to verify the offset is working
-            if (i < 10) {
-              console.log(`Bin ${i}: xBin=${xBin}, yBin=${yBin}, offset=${offset}`);
-            }
-            
-            return xMin + offset + (xBin + 0.5) * binWidthX;
-          }),
-        } as RawDataColumn];
-      }
-      if (col.name === "y_coord") {
-        return [{
-          ...col,
-          data: Array.from({ length: numBinsX * numBinsY }, (_, i) => {
-            const yBin = Math.floor(i / numBinsX);
-            return yMin + (yBin + 0.5) * binWidthY;
-          }),
-        } as RawDataColumn];
-      }
-      
-      if (col.dtype === "categorical") {
-        // compute mode for categorical columns
-        const modePerBin: (number | undefined)[] = Array.from({ length: numBinsX * numBinsY }, () => undefined);
-        for (const [i, indices] of binIndices.entries()) {
-          const values = indices.map(i => col.data[i]) as number[];
-          if (values.length === 0) {
-            continue;
-          }
-          const mode = _.flow(
-            _.countBy,
-            _.entries,
-            _.partialRight(_.maxBy, _.last),
-            _.head
-          )(values)
-          modePerBin[i] = mode as number | undefined;
-        }
-        return [
-          {
-            ...col,
-            data: modePerBin,
-          } as RawDataColumn
-        ];
-      }
-      
-      if (col.dtype === "numeric" || col.dtype === "integer" || col.dtype === "boolean") {
-        // compute mean for numeric columns
-        const meanPerBin: (number | undefined)[] = Array.from({ length: numBinsX * numBinsY }, () => undefined);
-        for (const [i, indices] of binIndices.entries()) {
-          const values = indices.map(i => col.data[i]) as number[];
-          if (values.length === 0) {
-            continue;
-          }
-          const mean = _.mean(values);
-          meanPerBin[i] = mean;
-        }
-        return [
-          {
-            ...col,
-            data: meanPerBin,
-          } as RawDataColumn
-        ];
-      }
-      // skip unsupported column types (should not happen)
-      return [];
+      console.log(`bin: ${i}, x: ${x}, y: ${y}`);
+
+      // initialize indices array for this bin
+      const indices: number[] = [];
+      return {x, y, indices};
     });
 
-    // Add a cell_count column
-    const cellCountColumn: RawDataColumn = {
-      name: "cell_count",
-      dtype: "integer",
-      data: binIndices.map(indices => indices.length)
-    };
+    // iterate over all points and find the bin they fall into
+    for (let i = 0; i < xCoord.length; i++) {
+      const px = xCoord[i];
+      const py = yCoord[i];
 
-    // compute resulting rawdata structure
-    const hexbinCategory: RawDataCategory = {
-      num_rows: hexbin().numBinsX * hexbin().numBinsY,
-      num_columns: data()!.cell_rna_stats.num_columns + 1, // +1 for cell_count
-      columns: [...hexBinnedColumns, cellCountColumn],
+      // find the xbin and ybin for this point
+      const yBin = Math.floor((py - yMin) / binWidthY);
+      const xBin = Math.floor((px - xMin) / binWidthX - (yBin % 2 === 0 ? 0 : 0.5));
+  
+      
+      if (xBin >= 0 && xBin < numBinsX && yBin >= 0 && yBin < numBinsY) {
+        bins[yBin * numBinsX + xBin].indices.push(i);
+      }
     }
 
-    return hexbinCategory;
+    return {
+      xMin,
+      xMax,
+      yMin,
+      yMax,
+      numBinsX,
+      numBinsY,
+      binWidthX,
+      binWidthY,
+      bins
+    };
   })
-
 
   // initialise filtersettings
   const [settings, setSettings] = createStore<Settings>(
@@ -520,9 +458,10 @@ const App: Component = () => {
                                 </Match>
                                 {/* Spatial visualization with conditional hexbin */}
                                 <Match when={setting.type === "histogram" && setting.visualizationType === "spatial"}>
-                                  <Show when={hexbin().enabled && hexBinnedData()}>
+                                  <Show when={hexbin().enabled && hexbinData()}>
                                     <HexbinPlot
-                                      data={hexBinnedData()!}
+                                      data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
+                                      hexbinData={hexbinData()!}
                                       filterSettings={{
                                         ...setting,
                                         groupBy: currentFilterGroupBy()
@@ -531,7 +470,7 @@ const App: Component = () => {
                                     />
                                   </Show>
                                   
-                                  <Show when={!hexbin().enabled || !hexBinnedData()}>
+                                  <Show when={!hexbin().enabled || !hexbinData()}>
                                     <ScatterPlot
                                       data={(filters().enabled ? fullyFilteredData() : filteredData())?.cell_rna_stats!}
                                       filterSettings={{

@@ -78,3 +78,19 @@ export type SampleMetadata = Record<string, {
   rna_median_num_nonzero_vars?: number;
   [key: string]: any;
 }>;
+
+export type HexbinData = {
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
+  numBinsX: number;
+  numBinsY: number;
+  binWidthX: number;
+  binWidthY: number;
+  bins: {
+    x: number;
+    y: number;
+    indices: number[];
+  }[];
+};

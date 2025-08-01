@@ -1,14 +1,50 @@
 import Plot from "@ralphsmith80/solid-plotly.js";
 import { Layout, PlotData } from "plotly.js-dist-min";
 import { plotlyConfig } from "~/lib/plots";
-import { FilterSettings, RawDataCategory } from "~/types";
+import { FilterSettings, RawDataCategory, HexbinData } from "~/types";
 import { createMemo, Show } from "solid-js";
+import * as _ from "lodash";
 
 type HexbinPlotProps = {
   data: RawDataCategory;
+  hexbinData: HexbinData;
   filterSettings: FilterSettings;
   colorFieldName?: string;
 };
+
+function getColorValue(dtype: string, colorValues: number[], hexbinData: HexbinData, groupValues: number[] | undefined, group: number | undefined): (number | undefined)[] {
+  const binColors = hexbinData.bins.map(bin => {
+    let values = bin.indices.map(i => colorValues[i]);
+
+    if (values.length === 0) {
+      return undefined;
+    }
+
+    // Filter values by group if provided
+    if (groupValues && group !== undefined) {
+      values = values.filter((_, idx) => groupValues[bin.indices[idx]] === group);
+    }
+
+    if (dtype === "categorical") {
+      // compute mode
+      const mode = _.flow(
+        _.countBy,
+        _.toPairs,
+        _.partialRight(_.maxBy, _.last),
+        _.head
+      )(values);
+      return mode as number | undefined;
+    }
+    
+    if (["numeric", "integer", "boolean"].includes(dtype)) {
+      // compute mean
+      const mean = _.mean(values);
+      return mean as number | undefined;
+    }
+  });
+
+  return binColors;
+}
 
 export function HexbinPlot(props: HexbinPlotProps) {
   // Get field for coloring
@@ -18,46 +54,26 @@ export function HexbinPlot(props: HexbinPlotProps) {
   
   // Create plot data
   const plotData = createMemo(() => {
-    const xColumn = props.data.columns.find(c => c.name === "x_coord");
-    const yColumn = props.data.columns.find(c => c.name === "y_coord");
     const colorColumn = props.data.columns.find(c => c.name === colorField());
-    const countColumn = props.data.columns.find(c => c.name === "cell_count");
-    
-    if (!xColumn || !yColumn || !colorColumn) return [];
-    
-    // Calculate true hexagonal grid coordinates
-    const xValues = xColumn.data as number[];
-    const yValues = yColumn.data as number[];
+    if (!colorColumn) return [];
     const colorValues = colorColumn.data as number[];
     
-    // Get cell counts (or default to 1 if count column doesn't exist)
-    const cellCounts = countColumn ? countColumn.data as number[] : Array(xValues.length).fill(1);
-    
-    // Filter out bins with 0 cells
-    const filteredIndices = cellCounts.map((count, idx) => ({ count, idx }))
-                                      .filter(item => item.count > 0)
-                                      .map(item => item.idx);
-    
-    // Apply the filter to all data arrays
-    const filteredX = filteredIndices.map(i => xValues[i]);
-    const filteredY = filteredIndices.map(i => yValues[i]);
-    const filteredColor = filteredIndices.map(i => colorValues[i]);
-    const filteredCounts = filteredIndices.map(i => cellCounts[i]);
-    
-    // Find min/max coordinates (use filtered values)
-    const xMin = Math.min(...filteredX.filter(x => !isNaN(x)));
-    const xMax = Math.max(...filteredX.filter(x => !isNaN(x)));
-    const yMin = Math.min(...filteredY.filter(y => !isNaN(y)));
-    const yMax = Math.max(...filteredY.filter(y => !isNaN(y)));
-    
-    // Get row and column info from the data (not computed)
-    const uniqueXCoords = new Set(filteredX.map(x => Math.round(x * 100) / 100)).size;
-    const uniqueYCoords = new Set(filteredY.map(y => Math.round(y * 100) / 100)).size;
-    const numBinsX = uniqueXCoords;
-    const numBinsY = uniqueYCoords;
+    // Calculate true hexagonal grid coordinates
+    const binX = props.hexbinData.bins.map(bin => bin.x);
+    const binY = props.hexbinData.bins.map(bin => bin.y);
+    const binColors = getColorValue(colorColumn.dtype, colorValues, props.hexbinData, undefined, undefined);
+    const binCounts = props.hexbinData.bins.map(bin => bin.indices.length);
+
+    console.log("Hexbin plot data:", {
+      binX,
+      binY,
+      binColors,
+      binCounts,
+    });
 
     // Base size on the density of bins, with a scaling factor
-    const totalBins = numBinsX * numBinsY;
+    // TODO: don't plot hexbins as hexagonally shaped points, but plot them as polygons
+    const totalBins = props.hexbinData.numBinsX * props.hexbinData.numBinsY;
     const baseSizeMultiplier = 20; // Adjust this number to change overall size
     const hexSize = Math.max(
       5,  // Minimum size
@@ -82,12 +98,12 @@ export function HexbinPlot(props: HexbinPlotProps) {
       return [{
         type: "scatter",
         mode: "markers",
-        x: filteredX,
-        y: filteredY,
+        x: binX,
+        y: binY,
         marker: {
           symbol: "hexagon2",
           size: hexSize,
-          color: filteredColor,
+          color: binColors,
           colorscale: customColorScale,
           colorbar: {
             title: props.filterSettings.label || colorField() || "",
@@ -108,7 +124,7 @@ export function HexbinPlot(props: HexbinPlotProps) {
           '<b>Y</b>: %{y:.2f}<br>' +
           `<b>${props.filterSettings.label || colorField() || ""}</b>: %{marker.color:.2f}` +
           '<extra></extra>',
-        customdata: filteredCounts,
+        customdata: binCounts,
       } as Partial<PlotData>];
     }
 
@@ -117,27 +133,10 @@ export function HexbinPlot(props: HexbinPlotProps) {
     if (!groupColumn) return [];
 
     // We need to ensure consistent filtering between Total and individual plots
-    const rawGroupData = groupColumn.data;
+    const groupValues = groupColumn.data;
 
     // First, identify valid groups
-    const definedGroups = [...new Set(rawGroupData)].filter(g => g !== undefined && g !== null).sort();
-    const hasOnlySingleGroup = definedGroups.length === 1;
-
-    // Create a processed version of groupData that handles undefined/null properly
-    const processedGroupData: (number | string | undefined | null)[] = [];
-    for (let i = 0; i < filteredIndices.length; i++) {
-      // Get the original index before filtering
-      const originalIndex = filteredIndices[i];
-      // Get the group value for this data point
-      let group = rawGroupData[originalIndex];
-      
-      // If there's only one group and this point has no group, assign it to that group
-      if (hasOnlySingleGroup && (group === undefined || group === null)) {
-        group = definedGroups[0];
-      }
-      
-      processedGroupData.push(group);
-    }
+    const definedGroups = [...new Set(groupValues)].filter(g => g !== undefined && g !== null).sort();
 
     // Now use the processed group data for all subsequent operations
     const uniqueGroups = definedGroups;
@@ -147,12 +146,12 @@ export function HexbinPlot(props: HexbinPlotProps) {
     plots.push({
       type: "scatter",
       mode: "markers",
-      x: filteredX,
-      y: filteredY,
+      x: binX,
+      y: binY,
       marker: {
         symbol: "hexagon2",
         size: hexSize,
-        color: filteredColor,
+        color: binColors,
         colorscale: customColorScale,
         // Only show colorbar if there are no group plots
         colorbar: uniqueGroups.length === 0 ? {
@@ -174,7 +173,7 @@ export function HexbinPlot(props: HexbinPlotProps) {
         '<b>Y</b>: %{y:.2f}<br>' +
         `<b>${props.filterSettings.label || colorField() || ""}</b>: %{marker.color:.2f}` +
         '<extra></extra>',
-      customdata: filteredCounts,
+      customdata: binCounts,
       xaxis: "x",
       yaxis: "y",
       name: "Total",
@@ -183,20 +182,11 @@ export function HexbinPlot(props: HexbinPlotProps) {
 
     // Then add individual plots for each group using the processed group data
     uniqueGroups.forEach((group, i) => {
-      // Find indices within the already-filtered data
-      const groupIndices = [];
-      for (let j = 0; j < processedGroupData.length; j++) {
-        if (processedGroupData[j] === group) {
-          groupIndices.push(j);
-        }
-      }
-      
-      // Filter data for this group
-      const groupX = groupIndices.map(idx => filteredX[idx]);
-      const groupY = groupIndices.map(idx => filteredY[idx]);
-      const groupColor = groupIndices.map(idx => filteredColor[idx]);
-      const groupCounts = groupIndices.map(idx => filteredCounts[idx]);
+      const groupColor = getColorValue(colorColumn.dtype, colorValues, props.hexbinData, groupValues, group);
       const groupName = groupColumn.categories?.[group] || `Group ${group}`;
+      const groupCounts = props.hexbinData.bins.map(bin => {
+        return bin.indices.filter(idx => groupValues[idx] === group).length;
+      });
       
       // Only show colorbar on the LAST plot, regardless of position
       const showColorbar = (i === uniqueGroups.length - 1);
@@ -204,8 +194,8 @@ export function HexbinPlot(props: HexbinPlotProps) {
       plots.push({
         type: "scatter",
         mode: "markers",
-        x: groupX,
-        y: groupY,
+        x: binX,
+        y: binY,
         marker: {
           symbol: "hexagon2",
           size: hexSize,
