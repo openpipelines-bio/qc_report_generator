@@ -46,6 +46,46 @@ function getColorValue(dtype: string, colorValues: number[], hexbinData: HexbinD
   return binColors;
 }
 
+// Keep this helper function that was already added
+function generateHexagonVertices(centerX: number, centerY: number, size: number) {
+  const vertices = [];
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 3) * i;
+    vertices.push({
+      x: centerX + size * Math.cos(angle),
+      y: centerY + size * Math.sin(angle)
+    });
+  }
+  // Add the first vertex again to close the shape
+  vertices.push({
+    x: vertices[0].x,
+    y: vertices[0].y
+  });
+  
+  return vertices;
+}
+
+// Helper to get color from scale
+function getColorFromScale(colorscale: [number, string][], value: number, allValues: (number | undefined)[]) {
+  // Filter out undefined values
+  const validValues = allValues.filter(v => v !== undefined) as number[];
+  const min = Math.min(...validValues);
+  const max = Math.max(...validValues);
+  const range = max - min;
+  
+  // Normalize the value
+  const normalizedValue = range > 0 ? (value - min) / range : 0.5;
+  
+  // Find position in colorscale
+  for (let i = 0; i < colorscale.length - 1; i++) {
+    if (normalizedValue >= colorscale[i][0] && normalizedValue <= colorscale[i+1][0]) {
+      return colorscale[i+1][1];
+    }
+  }
+  
+  return colorscale[colorscale.length - 1][1];
+}
+
 export function HexbinPlot(props: HexbinPlotProps) {
   // Get field for coloring
   const colorField = createMemo(() => 
@@ -84,7 +124,7 @@ export function HexbinPlot(props: HexbinPlotProps) {
     );
     
     // Custom white-to-blue color scale
-    const customColorScale = [
+    const customColorScale: [number, string][] = [
       [0, 'rgba(255, 255, 255, 0.1)'],  // Almost transparent white for lowest values
       [0.1, 'rgba(240, 249, 255, 0.6)'], // Very light blue with some transparency
       [0.3, 'rgba(204, 224, 255, 0.8)'], // Light blue
@@ -95,15 +135,17 @@ export function HexbinPlot(props: HexbinPlotProps) {
 
     // If no groupBy, just return a single plot
     if (!props.filterSettings.groupBy) {
-      return [{
+      // Create one trace per hexbin
+      const plots: Partial<PlotData>[] = [];
+      
+      // Add a hidden scatter trace just for the colorbar
+      plots.push({
         type: "scatter",
         mode: "markers",
-        x: binX,
-        y: binY,
+        x: [null],
+        y: [null],
         marker: {
-          symbol: "hexagon2",
-          size: hexSize,
-          color: binColors,
+          color: binColors.filter(c => c !== undefined),
           colorscale: customColorScale,
           colorbar: {
             title: props.filterSettings.label || colorField() || "",
@@ -113,19 +155,62 @@ export function HexbinPlot(props: HexbinPlotProps) {
             y: 0.5,
             yanchor: 'middle'
           },
-          line: {
-            width: 0.5,
-            color: 'rgba(0,0,0,0.3)'
-          }
+          showscale: true
         },
-        hovertemplate: 
-          '<b>Cells in bin</b>: %{customdata}<br>' +
-          '<b>X</b>: %{x:.2f}<br>' +
-          '<b>Y</b>: %{y:.2f}<br>' +
-          `<b>${props.filterSettings.label || colorField() || ""}</b>: %{marker.color:.2f}` +
-          '<extra></extra>',
-        customdata: binCounts,
-      } as Partial<PlotData>];
+        showlegend: false,
+        hoverinfo: "none"
+      } as Partial<PlotData>);
+      
+      // Calculate size based on bin density but adapted for polygons
+      const scaleFactor = 0.7; // Adjust as needed
+      const polygonSize = hexSize * scaleFactor;
+      
+      // Create one trace for each hexbin
+      props.hexbinData.bins.forEach((bin, index) => {
+        const color = binColors[index];
+        if (color === undefined) return;
+        
+        const vertices = generateHexagonVertices(binX[index], binY[index], polygonSize);
+        
+        plots.push({
+          type: "scatter",
+          x: vertices.map(v => v.x),
+          y: vertices.map(v => v.y),
+          fill: "toself",
+          fillcolor: 'rgba(0,0,0,0)', // Start with transparent fill
+          marker: { color: 'rgba(0,0,0,0)' }, // Make markers invisible
+          line: {
+            color: 'rgba(0,0,0,0.3)',
+            width: 0.5
+          },
+          hovertemplate: 
+            '<b>Cells in bin</b>: ' + binCounts[index] + '<br>' +
+            '<b>X</b>: ' + binX[index].toFixed(2) + '<br>' +
+            '<b>Y</b>: ' + binY[index].toFixed(2) + '<br>' +
+            `<b>${props.filterSettings.label || colorField() || ""}</b>: ` + color.toFixed(2) +
+            '<extra></extra>',
+          showlegend: false,
+        } as Partial<PlotData>);
+      });
+      
+      // Now update the fills with colors
+      // This ensures proper z-ordering so that color scale works
+      const min = Math.min(...binColors.filter(c => c !== undefined) as number[]);
+      const max = Math.max(...binColors.filter(c => c !== undefined) as number[]);
+      const range = max - min;
+      
+      props.hexbinData.bins.forEach((bin, index) => {
+        const color = binColors[index];
+        if (color === undefined) return;
+        
+        // Find color in the custom scale
+        const fillColor = getColorFromScale(customColorScale, color, binColors);
+        
+        // Set the fill color
+        plots[index + 1].fillcolor = fillColor;
+      });
+      
+      return plots;
     }
 
     // If we have a groupBy, create multiple plots
@@ -142,45 +227,69 @@ export function HexbinPlot(props: HexbinPlotProps) {
     const uniqueGroups = definedGroups;
     const plots: Partial<PlotData>[] = [];
     
-    // First add the "Total" plot with ALL valid filtered data
-    plots.push({
-      type: "scatter",
-      mode: "markers",
-      x: binX,
-      y: binY,
-      marker: {
-        symbol: "hexagon2",
-        size: hexSize,
-        color: binColors,
-        colorscale: customColorScale,
-        // Only show colorbar if there are no group plots
-        colorbar: uniqueGroups.length === 0 ? {
-          title: props.filterSettings.label || colorField() || "",
-          titleside: "right",
-          thickness: 15,
-          len: 0.75,
-          y: 0.5,
-          yanchor: 'middle'
-        } : undefined,  // No colorbar for Total when we have group plots
-        line: {
-          width: 0.5,
-          color: 'rgba(0,0,0,0.3)'
-        }
-      },
-      hovertemplate: 
-        '<b>Cells in bin</b>: %{customdata}<br>' +
-        '<b>X</b>: %{x:.2f}<br>' +
-        '<b>Y</b>: %{y:.2f}<br>' +
-        `<b>${props.filterSettings.label || colorField() || ""}</b>: %{marker.color:.2f}` +
-        '<extra></extra>',
-      customdata: binCounts,
-      xaxis: "x",
-      yaxis: "y",
-      name: "Total",
-      showlegend: false,
-    } as Partial<PlotData>);
+    // Replace the "Total" plot in the grouped case
+    // Calculate size based on bin density but adapted for polygons
+    const scaleFactor = 0.7; // Adjust as needed
+    const polygonSize = hexSize * scaleFactor;
 
-    // Then add individual plots for each group using the processed group data
+    // Add a hidden trace for the colorbar if needed
+    if (uniqueGroups.length === 0) {
+      plots.push({
+        type: "scatter",
+        mode: "markers",
+        x: [null],
+        y: [null],
+        marker: {
+          color: binColors.filter(c => c !== undefined),
+          colorscale: customColorScale,
+          colorbar: {
+            title: props.filterSettings.label || colorField() || "",
+            titleside: "right",
+            thickness: 15,
+            len: 0.75,
+            y: 0.5,
+            yanchor: 'middle'
+          },
+          showscale: true
+        },
+        showlegend: false,
+        hoverinfo: "none",
+        xaxis: "x",
+        yaxis: "y",
+      } as Partial<PlotData>);
+    }
+
+    // Create polygon-based hexbins for "Total" plot
+    props.hexbinData.bins.forEach((bin, index) => {
+      const color = binColors[index];
+      if (color === undefined) return;
+      
+      const vertices = generateHexagonVertices(binX[index], binY[index], polygonSize);
+      
+      plots.push({
+        type: "scatter",
+        x: vertices.map(v => v.x),
+        y: vertices.map(v => v.y),
+        fill: "toself",
+        fillcolor: getColorFromScale(customColorScale, color, binColors),
+        line: {
+          color: 'rgba(0,0,0,0.3)',
+          width: 0.5
+        },
+        hovertemplate: 
+          '<b>Cells in bin</b>: ' + binCounts[index] + '<br>' +
+          '<b>X</b>: ' + binX[index].toFixed(2) + '<br>' +
+          '<b>Y</b>: ' + binY[index].toFixed(2) + '<br>' +
+          `<b>${props.filterSettings.label || colorField() || ""}</b>: ` + color.toFixed(2) +
+          '<extra></extra>',
+        showlegend: false,
+        xaxis: "x",
+        yaxis: "y",
+        name: "Total",
+      } as Partial<PlotData>);
+    });
+
+    // Similarly, replace each group's plot with polygon-based hexbins
     uniqueGroups.forEach((group, i) => {
       const groupColor = getColorValue(colorColumn.dtype, colorValues, props.hexbinData, groupValues, group);
       const groupName = groupColumn.categories?.[group] || `Group ${group}`;
@@ -188,44 +297,65 @@ export function HexbinPlot(props: HexbinPlotProps) {
         return bin.indices.filter(idx => groupValues[idx] === group).length;
       });
       
-      // Only show colorbar on the LAST plot, regardless of position
+      // Only show colorbar on the LAST plot
       const showColorbar = (i === uniqueGroups.length - 1);
       
-      plots.push({
-        type: "scatter",
-        mode: "markers",
-        x: binX,
-        y: binY,
-        marker: {
-          symbol: "hexagon2",
-          size: hexSize,
-          color: groupColor,
-          colorscale: customColorScale,
-          colorbar: showColorbar ? {
-            title: props.filterSettings.label || colorField() || "",
-            titleside: "right",
-            thickness: 15,
-            len: 0.25,
-            y: 0.5,
-            yanchor: 'middle'
-          } : undefined,
+      // Add a hidden trace for the colorbar if needed
+      if (showColorbar) {
+        plots.push({
+          type: "scatter",
+          mode: "markers",
+          x: [null],
+          y: [null],
+          marker: {
+            color: groupColor.filter(c => c !== undefined),
+            colorscale: customColorScale,
+            colorbar: {
+              title: props.filterSettings.label || colorField() || "",
+              titleside: "right",
+              thickness: 15,
+              len: 0.25,
+              y: 0.5,
+              yanchor: 'middle'
+            },
+            showscale: true
+          },
+          showlegend: false,
+          hoverinfo: "none",
+          xaxis: `x${i+2}`,
+          yaxis: `y${i+2}`,
+        } as Partial<PlotData>);
+      }
+      
+      // Create polygon-based hexbins for this group
+      props.hexbinData.bins.forEach((bin, index) => {
+        const color = groupColor[index];
+        if (color === undefined) return;
+        
+        const vertices = generateHexagonVertices(binX[index], binY[index], polygonSize);
+        
+        plots.push({
+          type: "scatter",
+          x: vertices.map(v => v.x),
+          y: vertices.map(v => v.y),
+          fill: "toself",
+          fillcolor: getColorFromScale(customColorScale, color, groupColor),
           line: {
-            width: 0.5,
-            color: 'rgba(0,0,0,0.3)'
-          }
-        },
-        hovertemplate: 
-          '<b>Cells in bin</b>: %{customdata}<br>' +
-          '<b>X</b>: %{x:.2f}<br>' +
-          '<b>Y</b>: %{y:.2f}<br>' +
-          `<b>${props.filterSettings.label || colorField() || ""}</b>: %{marker.color:.2f}` +
-          '<extra></extra>',
-        customdata: groupCounts,
-        xaxis: `x${i+2}`, // Start from x2 as x1 is for Total
-        yaxis: `y${i+2}`, // Start from y2 as y1 is for Total
-        name: groupName,
-        showlegend: false,
-      } as Partial<PlotData>);
+            color: 'rgba(0,0,0,0.3)',
+            width: 0.5
+          },
+          hovertemplate: 
+            '<b>Cells in bin</b>: ' + groupCounts[index] + '<br>' +
+            '<b>X</b>: ' + binX[index].toFixed(2) + '<br>' +
+            '<b>Y</b>: ' + binY[index].toFixed(2) + '<br>' +
+            `<b>${props.filterSettings.label || colorField() || ""}</b>: ` + color.toFixed(2) +
+            '<extra></extra>',
+          showlegend: false,
+          xaxis: `x${i+2}`,
+          yaxis: `y${i+2}`,
+          name: groupName,
+        } as Partial<PlotData>);
+      });
     });
     
     return plots;
@@ -335,7 +465,6 @@ export function HexbinPlot(props: HexbinPlotProps) {
         zerolinecolor: 'lightgray',
         gridwidth: 1
       };
-      
       layout[`yaxis${axisIndex}`] = {
         title: "Y Position (µm)",
         fixedrange: false,
