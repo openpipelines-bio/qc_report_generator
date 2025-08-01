@@ -149,10 +149,11 @@ const App: Component = () => {
 
     if (!xCoord || !yCoord) return undefined;
 
-    const xMin = _.min(xCoord)!;
-    const xMax = _.max(xCoord)!;
-    const yMin = _.min(yCoord)!;
-    const yMax = _.max(yCoord)!;
+    // add a small offset to avoid having cells fall exactly on the bin edges
+    const xMin = _.min(xCoord)! - 1e-6;
+    const xMax = _.max(xCoord)! + 1e-6;
+    const yMin = _.min(yCoord)! - 1e-6;
+    const yMax = _.max(yCoord)! + 1e-6;
     const numBinsX = hexbin().numBinsX;
     const numBinsY = hexbin().numBinsY;
     const binWidthX = (xMax - xMin) / numBinsX;
@@ -160,6 +161,7 @@ const App: Component = () => {
 
     // per bin, compute the indices of the cells that fall into that bin
     const binIndices: number[][] = Array.from({ length: numBinsX * numBinsY }, () => []);
+    // TODO: this is a simple (rectangular) binning, not a hexagonal binning
     for (let i = 0; i < xCoord.length; i++) {
       const xBin = Math.floor((xCoord[i] - xMin) / binWidthX);
       const yBin = Math.floor((yCoord[i] - yMin) / binWidthY);
