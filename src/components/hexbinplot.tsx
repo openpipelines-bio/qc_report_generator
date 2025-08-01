@@ -49,8 +49,9 @@ function getColorValue(dtype: string, colorValues: number[], hexbinData: HexbinD
 // Keep this helper function that was already added
 function generateHexagonVertices(centerX: number, centerY: number, size: number) {
   const vertices = [];
+  const rotation = Math.PI / 6; // 30 degrees in radians
   for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI / 3) * i;
+    const angle = (Math.PI / 3) * i + rotation;
     vertices.push({
       x: centerX + size * Math.cos(angle),
       y: centerY + size * Math.sin(angle)
@@ -111,18 +112,53 @@ export function HexbinPlot(props: HexbinPlotProps) {
       binCounts,
     });
 
-    // Base size on the density of bins, with a scaling factor
-    // TODO: don't plot hexbins as hexagonally shaped points, but plot them as polygons
-    const totalBins = props.hexbinData.numBinsX * props.hexbinData.numBinsY;
-    const baseSizeMultiplier = 20; // Adjust this number to change overall size
-    const hexSize = Math.max(
-      5,  // Minimum size
-      Math.min(
-        30,  // Maximum size
-        baseSizeMultiplier * Math.sqrt(500 / totalBins)  // Scale based on bin density
-      )
-    );
-    
+    // Calculate size based on distance between adjacent hexbin centers
+    // Find the minimum distance between adjacent hexbins
+    const distances = [];
+    // Only check a sample of points to improve performance
+    for (let i = 0; i < Math.min(binX.length, 50); i++) {
+      for (let j = i + 1; j < Math.min(binX.length, 50); j++) {
+        const dx = binX[i] - binX[j];
+        const dy = binY[i] - binY[j];
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Only consider small non-zero distances (likely adjacent hexagons)
+        if (distance > 0.0001) {
+          distances.push(distance);
+        }
+      }
+    }
+
+    // Sort distances and find the minimum
+    distances.sort((a, b) => a - b);
+    // For a perfect hexagonal grid, the smallest distance is between adjacent centers
+    let hexSize;
+    if (distances.length > 0) {
+      // Get the most common small distance
+      // This is likely the distance between adjacent hexagons
+      // Use the first 5% of distances and average them to avoid outliers
+      const sampleSize = Math.max(1, Math.floor(distances.length * 0.05));
+      const avgMinDistance = distances.slice(0, sampleSize).reduce((a, b) => a + b, 0) / sampleSize;
+      
+      // For hexagons to touch in a hexagonal grid, size should be distance/sqrt(3)
+      hexSize = avgMinDistance / Math.sqrt(3) * 0.95; // 0.95 to leave small gaps
+    } else {
+      // Fallback to the original calculation if no distances are found
+      const totalBins = props.hexbinData.numBinsX * props.hexbinData.numBinsY;
+      hexSize = Math.max(
+        5,  // Minimum size
+        Math.min(
+          50,  // Maximum size
+          40 * Math.sqrt(500 / totalBins)  // Scale based on bin density
+        )
+      );
+    }
+
+    console.log("Hexbin sizing:", {
+      distances: distances.slice(0, 5),
+      hexSize
+    });
+
     // Custom white-to-blue color scale
     const customColorScale: [number, string][] = [
       [0, 'rgba(255, 255, 255, 0.1)'],  // Almost transparent white for lowest values
@@ -141,7 +177,7 @@ export function HexbinPlot(props: HexbinPlotProps) {
       // Add a hidden scatter trace just for the colorbar
       plots.push({
         type: "scatter",
-        mode: "markers",
+        mode: "text+lines",
         x: [null],
         y: [null],
         marker: {
@@ -161,24 +197,21 @@ export function HexbinPlot(props: HexbinPlotProps) {
         hoverinfo: "none"
       } as Partial<PlotData>);
       
-      // Calculate size based on bin density but adapted for polygons
-      const scaleFactor = 0.7; // Adjust as needed
-      const polygonSize = hexSize * scaleFactor;
       
       // Create one trace for each hexbin
       props.hexbinData.bins.forEach((bin, index) => {
         const color = binColors[index];
         if (color === undefined) return;
         
-        const vertices = generateHexagonVertices(binX[index], binY[index], polygonSize);
+        const vertices = generateHexagonVertices(binX[index], binY[index], hexSize);
         
         plots.push({
           type: "scatter",
+          mode: "text+lines", // Added this line to only show lines, not markers
           x: vertices.map(v => v.x),
           y: vertices.map(v => v.y),
           fill: "toself",
           fillcolor: 'rgba(0,0,0,0)', // Start with transparent fill
-          marker: { color: 'rgba(0,0,0,0)' }, // Make markers invisible
           line: {
             color: 'rgba(0,0,0,0.3)',
             width: 0.5
@@ -227,16 +260,12 @@ export function HexbinPlot(props: HexbinPlotProps) {
     const uniqueGroups = definedGroups;
     const plots: Partial<PlotData>[] = [];
     
-    // Replace the "Total" plot in the grouped case
-    // Calculate size based on bin density but adapted for polygons
-    const scaleFactor = 0.7; // Adjust as needed
-    const polygonSize = hexSize * scaleFactor;
 
     // Add a hidden trace for the colorbar if needed
     if (uniqueGroups.length === 0) {
       plots.push({
         type: "scatter",
-        mode: "markers",
+        mode: "text+lines",
         x: [null],
         y: [null],
         marker: {
@@ -264,10 +293,11 @@ export function HexbinPlot(props: HexbinPlotProps) {
       const color = binColors[index];
       if (color === undefined) return;
       
-      const vertices = generateHexagonVertices(binX[index], binY[index], polygonSize);
+      const vertices = generateHexagonVertices(binX[index], binY[index], hexSize);
       
       plots.push({
         type: "scatter",
+        mode: "text+lines", // Added this line to only show lines, not markers
         x: vertices.map(v => v.x),
         y: vertices.map(v => v.y),
         fill: "toself",
@@ -304,7 +334,7 @@ export function HexbinPlot(props: HexbinPlotProps) {
       if (showColorbar) {
         plots.push({
           type: "scatter",
-          mode: "markers",
+          mode: "text+lines",
           x: [null],
           y: [null],
           marker: {
@@ -331,11 +361,12 @@ export function HexbinPlot(props: HexbinPlotProps) {
       props.hexbinData.bins.forEach((bin, index) => {
         const color = groupColor[index];
         if (color === undefined) return;
-        
-        const vertices = generateHexagonVertices(binX[index], binY[index], polygonSize);
-        
+
+        const vertices = generateHexagonVertices(binX[index], binY[index], hexSize);
+
         plots.push({
           type: "scatter",
+          mode: "text+lines", // Added this line to only show lines, not markers
           x: vertices.map(v => v.x),
           y: vertices.map(v => v.y),
           fill: "toself",
