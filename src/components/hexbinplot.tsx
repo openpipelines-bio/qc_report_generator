@@ -140,8 +140,9 @@ export function HexbinPlot(props: HexbinPlotProps) {
       const sampleSize = Math.max(1, Math.floor(distances.length * 0.05));
       const avgMinDistance = distances.slice(0, sampleSize).reduce((a, b) => a + b, 0) / sampleSize;
       
-      // For hexagons to touch in a hexagonal grid, size should be distance/sqrt(3)
-      hexSize = avgMinDistance / Math.sqrt(3) * 0.95; // 0.95 to leave small gaps
+      // For hexagons to touch without overlap, size should be distance/2
+      // Multiply by 0.9 to add small gaps between hexagons
+      hexSize = avgMinDistance / 2 * 0.95; 
     } else {
       // Fallback to the original calculation if no distances are found
       const totalBins = props.hexbinData.numBinsX * props.hexbinData.numBinsY;
