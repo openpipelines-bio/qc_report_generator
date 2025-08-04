@@ -16,13 +16,14 @@ function getColorValue(dtype: string, colorValues: number[], hexbinData: HexbinD
   const binColors = hexbinData.bins.map(bin => {
     let values = bin.indices.map(i => colorValues[i]);
 
-    if (values.length === 0) {
-      return undefined;
-    }
-
     // Filter values by group if provided
     if (groupValues && group !== undefined) {
       values = values.filter((_, idx) => groupValues[bin.indices[idx]] === group);
+    }
+
+    // Return 0 for empty bins instead of undefined
+    if (values.length === 0) {
+      return 0;  // Return 0 instead of undefined for empty bins
     }
 
     if (dtype === "categorical") {
@@ -162,7 +163,8 @@ export function HexbinPlot(props: HexbinPlotProps) {
 
     // Custom white-to-blue color scale
     const customColorScale: [number, string][] = [
-      [0, 'rgba(255, 255, 255, 0.1)'],  // Almost transparent white for lowest values
+      [0, 'rgba(240, 240, 240, 0.4)'],  // Light gray with transparency for empty bins
+      [0.01, 'rgba(255, 255, 255, 0.1)'],  // Almost transparent white for lowest values
       [0.1, 'rgba(240, 249, 255, 0.6)'], // Very light blue with some transparency
       [0.3, 'rgba(204, 224, 255, 0.8)'], // Light blue
       [0.5, 'rgba(102, 169, 255, 0.9)'], // Medium blue
@@ -204,28 +206,36 @@ export function HexbinPlot(props: HexbinPlotProps) {
       // Create one trace for each hexbin
       props.hexbinData.bins.forEach((bin, index) => {
         const color = binColors[index];
-        if (color === undefined) return;
+        // Remove this line to include all bins: if (color === undefined) return;
         
         const vertices = generateHexagonVertices(binX[index], binY[index], hexSize);
+        const isEmpty = bin.indices.length === 0;
         
         plots.push({
           type: "scatter",
-          mode: "text+lines", // Added this line to only show lines, not markers
+          mode: "text+lines", 
           x: vertices.map(v => v.x),
           y: vertices.map(v => v.y),
           fill: "toself",
-          fillcolor: 'rgba(0,0,0,0)', // Start with transparent fill
+          fillcolor: isEmpty ? 'rgba(240, 240, 240, 0.4)' : getColorFromScale(customColorScale, color || 0, binColors),
           line: {
             color: 'rgba(0,0,0,0.3)',
             width: 0.5
           },
-          hovertemplate: 
+          hovertemplate: isEmpty ? 
+            '<b>Empty bin</b><br>' +
+            '<b>X</b>: ' + binX[index].toFixed(2) + '<br>' +
+            '<b>Y</b>: ' + binY[index].toFixed(2) + 
+            '<extra></extra>' :
             '<b>Cells in bin</b>: ' + binCounts[index] + '<br>' +
             '<b>X</b>: ' + binX[index].toFixed(2) + '<br>' +
             '<b>Y</b>: ' + binY[index].toFixed(2) + '<br>' +
-            `<b>${props.filterSettings.label || colorField() || ""}</b>: ` + color.toFixed(2) +
+            `<b>${props.filterSettings.label || colorField() || ""}</b>: ` + color?.toFixed(2) +
             '<extra></extra>',
           showlegend: false,
+          xaxis: "x",
+          yaxis: "y",
+          name: "Total",
         } as Partial<PlotData>);
       });
       
@@ -298,6 +308,7 @@ export function HexbinPlot(props: HexbinPlotProps) {
       if (color === undefined) return;
       
       const vertices = generateHexagonVertices(binX[index], binY[index], hexSize);
+      const isEmpty = bin.indices.length === 0;
       
       plots.push({
         type: "scatter",
@@ -305,16 +316,20 @@ export function HexbinPlot(props: HexbinPlotProps) {
         x: vertices.map(v => v.x),
         y: vertices.map(v => v.y),
         fill: "toself",
-        fillcolor: getColorFromScale(customColorScale, color, binColors),
+        fillcolor: isEmpty ? 'rgba(240, 240, 240, 0.4)' : getColorFromScale(customColorScale, color || 0, binColors),
         line: {
           color: 'rgba(0,0,0,0.3)',
           width: 0.5
         },
-        hovertemplate: 
+        hovertemplate: isEmpty ? 
+          '<b>Empty bin</b><br>' +
+          '<b>X</b>: ' + binX[index].toFixed(2) + '<br>' +
+          '<b>Y</b>: ' + binY[index].toFixed(2) + 
+          '<extra></extra>' :
           '<b>Cells in bin</b>: ' + binCounts[index] + '<br>' +
           '<b>X</b>: ' + binX[index].toFixed(2) + '<br>' +
           '<b>Y</b>: ' + binY[index].toFixed(2) + '<br>' +
-          `<b>${props.filterSettings.label || colorField() || ""}</b>: ` + color.toFixed(2) +
+          `<b>${props.filterSettings.label || colorField() || ""}</b>: ` + color?.toFixed(2) +
           '<extra></extra>',
         showlegend: false,
         xaxis: "x",
