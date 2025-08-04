@@ -177,9 +177,9 @@ export function HexbinPlot(props: HexbinPlotProps) {
       // Add a hidden scatter trace just for the colorbar
       plots.push({
         type: "scatter",
-        mode: "text+lines",
-        x: [null],
-        y: [null],
+        mode: "markers",   // Changed from "text+lines" to "markers"
+        x: [0],            // Changed from [null] to [0]
+        y: [0],            // Changed from [null] to [0]
         marker: {
           color: binColors.filter(c => c !== undefined),
           colorscale: customColorScale,
@@ -191,10 +191,12 @@ export function HexbinPlot(props: HexbinPlotProps) {
             y: 0.5,
             yanchor: 'middle'
           },
-          showscale: true
+          showscale: true,
+          size: 0.1        // Add small marker size
         },
         showlegend: false,
-        hoverinfo: "none"
+        hoverinfo: "none",
+        visible: true      // Explicitly set visibility
       } as Partial<PlotData>);
       
       
@@ -265,9 +267,9 @@ export function HexbinPlot(props: HexbinPlotProps) {
     if (uniqueGroups.length === 0) {
       plots.push({
         type: "scatter",
-        mode: "text+lines",
-        x: [null],
-        y: [null],
+        mode: "markers",  // Changed from "text+lines" to "markers"
+        x: [0],           // Changed from [null] to [0]
+        y: [0],           // Changed from [null] to [0]
         marker: {
           color: binColors.filter(c => c !== undefined),
           colorscale: customColorScale,
@@ -279,7 +281,8 @@ export function HexbinPlot(props: HexbinPlotProps) {
             y: 0.5,
             yanchor: 'middle'
           },
-          showscale: true
+          showscale: true,
+          size: 0.1        // Add small marker size to make it effectively invisible
         },
         showlegend: false,
         hoverinfo: "none",
@@ -334,9 +337,9 @@ export function HexbinPlot(props: HexbinPlotProps) {
       if (showColorbar) {
         plots.push({
           type: "scatter",
-          mode: "text+lines",
-          x: [null],
-          y: [null],
+          mode: "markers",  // Changed from "text+lines" to "markers"
+          x: [0],           // Changed from [null] to [0]
+          y: [0],           // Changed from [null] to [0]
           marker: {
             color: groupColor.filter(c => c !== undefined),
             colorscale: customColorScale,
@@ -348,12 +351,14 @@ export function HexbinPlot(props: HexbinPlotProps) {
               y: 0.5,
               yanchor: 'middle'
             },
-            showscale: true
+            showscale: true,
+            size: 0.1      // Add small marker size to make it effectively invisible
           },
           showlegend: false,
           hoverinfo: "none",
           xaxis: `x${i+2}`,
           yaxis: `y${i+2}`,
+          visible: true     // Explicitly set visibility
         } as Partial<PlotData>);
       }
       
