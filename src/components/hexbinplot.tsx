@@ -47,7 +47,6 @@ function getColorValue(dtype: string, colorValues: number[], hexbinData: HexbinD
   return binColors;
 }
 
-// Keep this helper function that was already added
 function generateHexagonVertices(centerX: number, centerY: number, size: number) {
   const vertices = [];
   const rotation = Math.PI / 6; // 30 degrees in radians
@@ -58,7 +57,6 @@ function generateHexagonVertices(centerX: number, centerY: number, size: number)
       y: centerY + size * Math.sin(angle)
     });
   }
-  // Add the first vertex again to close the shape
   vertices.push({
     x: vertices[0].x,
     y: vertices[0].y
@@ -123,7 +121,6 @@ export function HexbinPlot(props: HexbinPlotProps) {
         const dy = binY[i] - binY[j];
         const distance = Math.sqrt(dx * dx + dy * dy);
         
-        // Only consider small non-zero distances (likely adjacent hexagons)
         if (distance > 0.0001) {
           distances.push(distance);
         }
@@ -132,17 +129,12 @@ export function HexbinPlot(props: HexbinPlotProps) {
 
     // Sort distances and find the minimum
     distances.sort((a, b) => a - b);
-    // For a perfect hexagonal grid, the smallest distance is between adjacent centers
     let hexSize;
     if (distances.length > 0) {
       // Get the most common small distance
-      // This is likely the distance between adjacent hexagons
-      // Use the first 5% of distances and average them to avoid outliers
       const sampleSize = Math.max(1, Math.floor(distances.length * 0.05));
       const avgMinDistance = distances.slice(0, sampleSize).reduce((a, b) => a + b, 0) / sampleSize;
       
-      // For hexagons to touch without overlap, size should be distance/2
-      // Multiply by 0.9 to add small gaps between hexagons
       hexSize = avgMinDistance / 2 * 0.95; 
     } else {
       // Fallback to the original calculation if no distances are found
@@ -163,13 +155,13 @@ export function HexbinPlot(props: HexbinPlotProps) {
 
     // Custom white-to-blue color scale
     const customColorScale: [number, string][] = [
-      [0, 'rgba(240, 240, 240, 0.4)'],  // Light gray with transparency for empty bins
-      [0.01, 'rgba(255, 255, 255, 0.1)'],  // Almost transparent white for lowest values
-      [0.1, 'rgba(240, 249, 255, 0.6)'], // Very light blue with some transparency
-      [0.3, 'rgba(204, 224, 255, 0.8)'], // Light blue
-      [0.5, 'rgba(102, 169, 255, 0.9)'], // Medium blue
-      [0.7, 'rgba(51, 119, 255, 0.95)'], // Stronger blue
-      [1.0, 'rgba(0, 68, 204, 1)']       // Deep blue for highest values
+      [0, 'rgba(240, 240, 240, 0.4)'],
+      [0.01, 'rgba(255, 255, 255, 0.1)'],
+      [0.1, 'rgba(240, 249, 255, 0.6)'],
+      [0.3, 'rgba(204, 224, 255, 0.8)'],
+      [0.5, 'rgba(102, 169, 255, 0.9)'],
+      [0.7, 'rgba(51, 119, 255, 0.95)'],
+      [1.0, 'rgba(0, 68, 204, 1)']
     ];
 
     // If no groupBy, just return a single plot
@@ -180,7 +172,6 @@ export function HexbinPlot(props: HexbinPlotProps) {
       // Create one trace for each hexbin
       props.hexbinData.bins.forEach((bin, index) => {
         const color = binColors[index];
-        // Remove this line to include all bins: if (color === undefined) return;
         
         const vertices = generateHexagonVertices(binX[index], binY[index], hexSize);
         const isEmpty = bin.indices.length === 0;
@@ -213,8 +204,6 @@ export function HexbinPlot(props: HexbinPlotProps) {
         } as Partial<PlotData>);
       });
       
-      // Now update the fills with colors
-      // This ensures proper z-ordering so that color scale works
       const min = Math.min(...binColors.filter(c => c !== undefined) as number[]);
       const max = Math.max(...binColors.filter(c => c !== undefined) as number[]);
       const range = max - min;
@@ -223,10 +212,8 @@ export function HexbinPlot(props: HexbinPlotProps) {
         const color = binColors[index];
         if (color === undefined) return;
         
-        // Find color in the custom scale
         const fillColor = getColorFromScale(customColorScale, color, binColors);
         
-        // Set the fill color
         plots[index + 1].fillcolor = fillColor;
       });
       
@@ -237,17 +224,13 @@ export function HexbinPlot(props: HexbinPlotProps) {
     const groupColumn = props.data.columns.find(c => c.name === props.filterSettings.groupBy);
     if (!groupColumn) return [];
 
-    // We need to ensure consistent filtering between Total and individual plots
     const groupValues = groupColumn.data;
 
-    // First, identify valid groups
     const definedGroups = [...new Set(groupValues)].filter(g => g !== undefined && g !== null).sort();
 
-    // Now use the processed group data for all subsequent operations
     const uniqueGroups = definedGroups;
     const plots: Partial<PlotData>[] = [];
     
-    // Collect all color values across groups for a unified colorbar
     const allColorValues: number[] = [];
     uniqueGroups.forEach(group => {
       const groupColor = getColorValue(colorColumn.dtype, colorValues, props.hexbinData, groupValues, group);
@@ -258,7 +241,7 @@ export function HexbinPlot(props: HexbinPlotProps) {
     plots.push({
       type: "scatter",
       mode: "markers",
-      x: [null], // Use null to avoid affecting layout
+      x: [null],
       y: [null],
       marker: {
         color: allColorValues,
@@ -292,9 +275,7 @@ export function HexbinPlot(props: HexbinPlotProps) {
       const groupCounts = props.hexbinData.bins.map(bin => {
         return bin.indices.filter(idx => groupValues[idx] === group).length;
       });
-      
-      // No longer create individual colorbars for each group
-      
+            
       // Create polygon-based hexbins for this group
       props.hexbinData.bins.forEach((bin, index) => {
         const color = groupColor[index];
@@ -328,7 +309,6 @@ export function HexbinPlot(props: HexbinPlotProps) {
           xaxis: i === 0 ? "x" : `x${i+1}`,
           yaxis: i === 0 ? "y" : `y${i+1}`,
           name: groupName,
-          // Link to the shared coloraxis
           coloraxis: "coloraxis"
         } as Partial<PlotData>);
       });
@@ -346,19 +326,19 @@ export function HexbinPlot(props: HexbinPlotProps) {
           title: "X Position (µm)",
           fixedrange: false,
           automargin: true,
-          zerolinewidth: 1,     // Make zero line same width as other grid lines
-          zerolinecolor: 'lightgray', // Match color with grid lines
-          gridwidth: 1,         // Ensure consistent grid line width
+          zerolinewidth: 1,
+          zerolinecolor: 'lightgray',
+          gridwidth: 1,
         },
         yaxis: {
           title: "Y Position (µm)",
           fixedrange: false,
           automargin: true,
-          scaleanchor: "x",     // This ensures equal scaling
-          scaleratio: 1,        // This maintains the aspect ratio
-          zerolinewidth: 1,     // Make zero line same width as other grid lines
-          zerolinecolor: 'lightgray', // Match color with grid lines
-          gridwidth: 1,         // Ensure consistent grid line width
+          scaleanchor: "x",
+          scaleratio: 1,
+          zerolinewidth: 1,
+          zerolinecolor: 'lightgray',
+          gridwidth: 1,
         },
         height: 600,
         showlegend: false,
@@ -371,19 +351,18 @@ export function HexbinPlot(props: HexbinPlotProps) {
     const groupColumn = props.data.columns.find(c => c.name === props.filterSettings.groupBy);
     if (!groupColumn) return {};
 
-    // Make sure to filter out undefined/null groups here too
     const uniqueGroups = [...new Set(groupColumn.data)].filter(g => g !== undefined && g !== null).sort();
-    const totalPlots = uniqueGroups.length; // Removed the +1 for "Total" plot
+    const totalPlots = uniqueGroups.length;
     
     // Calculate grid dimensions
     const columns = Math.min(totalPlots, 2); // Maximum 2 columns
     const rows = Math.ceil(totalPlots / columns);
-    const height = Math.max(600, rows * 400); // Base height of 400px per row
+    const height = Math.max(600, rows * 400);
     
     const layout: Record<string, any> = {
       height: height,
       showlegend: false,
-      margin: { t: 50, r: 120, b: 60, l: 80 }, // Increased right margin to 120
+      margin: { t: 50, r: 120, b: 60, l: 80 },
       hovermode: "closest",
       grid: {
         rows: rows,
@@ -396,7 +375,7 @@ export function HexbinPlot(props: HexbinPlotProps) {
     
     // Set up axis properties for all plots
     uniqueGroups.forEach((group, i) => {
-      const axisIndex = i === 0 ? "" : i + 1; // First group uses x/y without number, others use x2, x3, etc.
+      const axisIndex = i === 0 ? "" : i + 1;
       const groupName = groupColumn.categories?.[group] || `Group ${group}`;
       
       layout[`xaxis${axisIndex}`] = {
