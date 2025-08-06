@@ -15,10 +15,10 @@ export function GlobalVisualizationSettings(props: {
 
   // Resolution presets
   const resolutionPresets = [
-    { label: "Low", x: 15, y: 15 },
-    { label: "Medium", x: 30, y: 30 },
-    { label: "High", x: 50, y: 50 },
-    { label: "Very High", x: 80, y: 80 }
+    { label: "Low", x: 50, y: 50 },
+    { label: "Medium", x: 75, y: 75 },
+    { label: "High", x: 100, y: 100 },
+    { label: "Very High", x: 150, y: 150 }
   ];
 
   // Function to apply resolution presets
@@ -170,7 +170,7 @@ export function GlobalVisualizationSettings(props: {
                       <input 
                         type="range" 
                         min="5" 
-                        max="100"
+                        max="175"
                         step="5"
                         value={field().state.value} 
                         onChange={(e) => {
@@ -203,7 +203,7 @@ export function GlobalVisualizationSettings(props: {
                       <input 
                         type="range" 
                         min="5" 
-                        max="100"
+                        max="175"
                         step="5"
                         value={field().state.value} 
                         onChange={(e) => field().handleChange(parseInt(e.target.value))}
