@@ -38,7 +38,7 @@ export interface FilterSettings {
   yAxisType?: "linear" | "log";
 }
 
-export type BinSettings = {
+export type binning = {
   discrete: boolean;
   num_bins: number;
   min: number;
@@ -79,7 +79,7 @@ export type SampleMetadata = Record<string, {
   [key: string]: any;
 }>;
 
-export type HexbinData = {
+export type HeatmapData = {
   xMin: number;
   xMax: number;
   yMin: number;
@@ -88,9 +88,7 @@ export type HexbinData = {
   numBinsY: number;
   binWidthX: number;
   binWidthY: number;
-  bins: {
-    x: number;
-    y: number;
-    indices: number[];
-  }[];
+  xBinCenters: number[];
+  yBinCenters: number[];
+  binIndices: number[][][];
 };

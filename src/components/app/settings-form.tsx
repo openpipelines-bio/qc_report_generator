@@ -14,7 +14,7 @@ export type SettingsState = {
     enabled: boolean;
     appliedSettings: Settings;
   }
-  hexbin: {
+  binning: {
     enabled: boolean;
     xCol: string;
     yCol: string;
@@ -35,8 +35,7 @@ export const defaultSettings: SettingsState = {
     enabled: false,
     appliedSettings: {}
   },
-
-  hexbin: {
+  binning: {
     enabled: false,
     xCol: "x_coord",
     yCol: "y_coord",

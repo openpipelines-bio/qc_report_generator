@@ -6,12 +6,12 @@ export function GlobalVisualizationSettings(props: {
 }) {
   const form = useSettingsForm();
   const groupingEnabled = form.useStore(state => state.values.globalVisualization.groupingEnabled);
-  const hexbin = form.useStore(state => state.values.hexbin);
+  const binning = form.useStore(state => state.values.binning);
   
   // Local signal to track linked state since it's not in the form model
   const [linkedResolutions, setLinkedResolutions] = createSignal(false);
-  // State to track if hexbin settings dropdown is open
-  const [hexbinSettingsOpen, setHexbinSettingsOpen] = createSignal(false);
+  // State to track if bin settings dropdown is open
+  const [binningOpen, setbinning] = createSignal(false);
 
   // Resolution presets
   const resolutionPresets = [
@@ -23,17 +23,17 @@ export function GlobalVisualizationSettings(props: {
 
   // Function to apply resolution presets
   const applyPreset = (x: number, y: number) => {
-    form.setFieldValue("hexbin.numBinsX", x);
-    form.setFieldValue("hexbin.numBinsY", y);
+    form.setFieldValue("binning.numBinsX", x);
+    form.setFieldValue("binning.numBinsY", y);
   };
   
   // Function to handle X resolution change with linked mode
   const handleXResolutionChange = (value: number) => {
-    form.setFieldValue("hexbin.numBinsX", value);
+    form.setFieldValue("binning.numBinsX", value);
     
     // If resolutions are linked, update Y to match X
     if (linkedResolutions()) {
-      form.setFieldValue("hexbin.numBinsY", value);
+      form.setFieldValue("binning.numBinsY", value);
     }
   };
 
@@ -82,23 +82,23 @@ export function GlobalVisualizationSettings(props: {
         </div>
       </div>
 
-      {/* Hexbin settings */}
-      <Show when={hexbin().enabled}>
+      {/* Binning settings */}
+      <Show when={binning().enabled}>
         <div class="mt-4 border rounded-md bg-white overflow-hidden">
           {/* Collapsible Header */}
           <button 
             type="button"
-            onClick={() => setHexbinSettingsOpen(!hexbinSettingsOpen())}
+            onClick={() => setbinning(!binningOpen())}
             class="w-full p-3 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors text-left"
           >
             <div class="flex items-center">
-              <h3 class="font-medium">Hexbin Resolution</h3>
+              <h3 class="font-medium">Binning Resolution</h3>
               <span class="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-                {hexbin().numBinsX} × {hexbin().numBinsY}
+                {binning().numBinsX} × {binning().numBinsY}
               </span>
             </div>
             <svg 
-              class={`w-5 h-5 transform transition-transform ${hexbinSettingsOpen() ? 'rotate-180' : ''}`} 
+              class={`w-5 h-5 transform transition-transform ${binningOpen() ? 'rotate-180' : ''}`} 
               fill="none" 
               stroke="currentColor" 
               viewBox="0 0 24 24" 
@@ -110,7 +110,7 @@ export function GlobalVisualizationSettings(props: {
           
           {/* Collapsible Content */}
           <div 
-            class={`transition-all duration-300 ease-in-out overflow-hidden ${hexbinSettingsOpen() ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}
+            class={`transition-all duration-300 ease-in-out overflow-hidden ${binningOpen() ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}
           >
             <div class="p-4">
               {/* Visual representation of current resolution */}
@@ -126,17 +126,17 @@ export function GlobalVisualizationSettings(props: {
                   <div 
                     class="absolute inset-0 grid" 
                     style={{
-                      "grid-template-columns": `repeat(${Math.min(20, hexbin().numBinsX)}, 1fr)`,
-                      "grid-template-rows": `repeat(${Math.min(15, hexbin().numBinsY)}, 1fr)`
+                      "grid-template-columns": `repeat(${Math.min(20, binning().numBinsX)}, 1fr)`,
+                      "grid-template-rows": `repeat(${Math.min(15, binning().numBinsY)}, 1fr)`
                     }}
                   >
-                    {Array.from({ length: Math.min(20, hexbin().numBinsX) * Math.min(15, hexbin().numBinsY) }).map((_, i) => (
+                    {Array.from({ length: Math.min(20, binning().numBinsX) * Math.min(15, binning().numBinsY) }).map((_, i) => (
                       <div class="border border-blue-200 bg-blue-50 opacity-60"></div>
                     ))}
                   </div>
                   <div class="absolute inset-0 flex items-center justify-center">
                     <span class="text-sm font-medium text-gray-700 bg-white/80 px-2 py-1 rounded">
-                      {hexbin().numBinsX} × {hexbin().numBinsY}
+                      {binning().numBinsX} × {binning().numBinsY}
                     </span>
                   </div>
                 </div>
@@ -162,9 +162,9 @@ export function GlobalVisualizationSettings(props: {
               <div class="mb-4">
                 <div class="flex justify-between items-center mb-1">
                   <label class="block text-sm font-medium text-gray-700">X-Axis Resolution</label>
-                  <span class="text-sm text-gray-500">{hexbin().numBinsX} bins</span>
+                  <span class="text-sm text-gray-500">{binning().numBinsX} bins</span>
                 </div>
-                <form.Field name="hexbin.numBinsX">
+                <form.Field name="binning.numBinsX">
                   {(field) => (
                     <div class="space-y-2">
                       <input 
@@ -177,7 +177,7 @@ export function GlobalVisualizationSettings(props: {
                           const value = parseInt(e.target.value);
                           field().handleChange(value);
                           if (linkedResolutions()) {
-                            form.setFieldValue("hexbin.numBinsY", value);
+                            form.setFieldValue("binning.numBinsY", value);
                           }
                         }}
                         class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
@@ -195,9 +195,9 @@ export function GlobalVisualizationSettings(props: {
               <div class="mb-4">
                 <div class="flex justify-between items-center mb-1">
                   <label class="block text-sm font-medium text-gray-700">Y-Axis Resolution</label>
-                  <span class="text-sm text-gray-500">{hexbin().numBinsY} bins</span>
+                  <span class="text-sm text-gray-500">{binning().numBinsY} bins</span>
                 </div>
-                <form.Field name="hexbin.numBinsY">
+                <form.Field name="binning.numBinsY">
                   {(field) => (
                     <div class="space-y-2">
                       <input 
@@ -229,7 +229,7 @@ export function GlobalVisualizationSettings(props: {
                     setLinkedResolutions(e.target.checked);
                     if (e.target.checked) {
                       // If linking is enabled, set Y to match X
-                      form.setFieldValue("hexbin.numBinsY", hexbin().numBinsX);
+                      form.setFieldValue("binning.numBinsY", binning().numBinsX);
                     }
                   }}
                   class="mr-2 h-4 w-4"

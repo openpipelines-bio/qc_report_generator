@@ -24,7 +24,7 @@ import { transformSampleMetadata } from "./lib/sample-utils";
 import { createSettingsForm, SettingsFormProvider } from "./components/app/settings-form";
 import { GlobalVisualizationSettings } from "./components/app/global-visualization-settings";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./components/ui/collapsible";
-import { HexbinPlot } from "~/components/hexbinplot";
+import { Heatmap } from "~/components/heatmap";
 
 
 const App: Component = () => {
@@ -53,7 +53,7 @@ const App: Component = () => {
     // TODO: allow users to select which coordinates to use
     const columnNames = data.cell_rna_stats?.columns.map(c => c.name) || [];
     const hasSpatialCoordinates = columnNames.includes("x_coord") && columnNames.includes("y_coord");
-    form.setFieldValue("hexbin.enabled", hasSpatialCoordinates);
+    form.setFieldValue("binning.enabled", hasSpatialCoordinates);
   });
 
   const sampleMetadata = createMemo(() => {
@@ -128,22 +128,22 @@ const App: Component = () => {
     return result;
   });
 
-  const hexbin = form.useStore(state => state.values.hexbin);
+  const binning = form.useStore(state => state.values.binning);
 
-  const hexbinData = createMemo(() => {
-    // TODO: Could compute the hexbinIndices on the filteredData, and only apply the QC filtering afterwards to
+  const binIndices = createMemo(() => {
+    // TODO: Could compute the binIndices on the filteredData, and only apply the QC filtering afterwards to
     // avoid recomputing the indices every time the filters change.
     const dataSource = filters().enabled ? fullyFilteredData() : filteredData();
     if (!dataSource) return undefined;
-    if (!hexbin().enabled) return undefined;
+    if (!binning().enabled) return undefined;
 
     // Get the x and y coordinates from the cell_rna_stats data
-    const xCol = dataSource.cell_rna_stats.columns.find(col => col.name === hexbin().xCol);
-    const yCol = dataSource.cell_rna_stats.columns.find(col => col.name === hexbin().yCol);
+    const xCol = dataSource.cell_rna_stats.columns.find(col => col.name === binning().xCol);
+    const yCol = dataSource.cell_rna_stats.columns.find(col => col.name === binning().yCol);
 
     if (!xCol || !yCol) return undefined;
     if (xCol.dtype !== "numeric" || yCol.dtype !== "numeric") {
-      console.error("Hexbin requires numeric coordinates");
+      console.error("Grid binning requires numeric coordinates");
       return undefined;
     }
     const xCoord = xCol!.data as number[];
@@ -151,44 +151,41 @@ const App: Component = () => {
 
     if (!xCoord || !yCoord) return undefined;
 
-    // add a small offset to avoid having cells fall exactly on the bin edges
+    // Add a small offset to avoid having cells fall exactly on the bin edges
     const xMin = _.min(xCoord)! - 1e-6;
     const xMax = _.max(xCoord)! + 1e-6;
     const yMin = _.min(yCoord)! - 1e-6;
     const yMax = _.max(yCoord)! + 1e-6;
-    const numBinsX = hexbin().numBinsX;
-    const numBinsY = hexbin().numBinsY;
+    const numBinsX = binning().numBinsX;
+    const numBinsY = binning().numBinsY;
     const binWidthX = (xMax - xMin) / numBinsX;
     const binWidthY = (yMax - yMin) / numBinsY;
 
-    // per bin, compute the indices of the cells that fall into that bin
-    console.log(`xMin: ${xMin}, xMax: ${xMax}, yMin: ${yMin}, yMax: ${yMax}, numBinsX: ${numBinsX}, numBinsY: ${numBinsY}, binWidthX: ${binWidthX}, binWidthY: ${binWidthY}`);
-    const bins = Array.from({ length: numBinsX * numBinsY }).map((_, i) => {
-      const xBin = i % numBinsX;
-      const yBin = Math.floor(i / numBinsX);
-      // Half width offset depending on even/odd row
-      const x = xMin + (xBin + (yBin % 2 === 0 ? 0 : 0.5)) * binWidthX;
-      const y = yMin + (yBin + 0.5) * binWidthY;
+    // Create regular rectangular grid - bins represent center coordinates
+    const xBinCenters = Array.from({ length: numBinsX }, (_, i) => 
+      xMin + (i + 0.5) * binWidthX
+    );
+    const yBinCenters = Array.from({ length: numBinsY }, (_, i) => 
+      yMin + (i + 0.5) * binWidthY
+    );
 
-      console.log(`bin: ${i}, x: ${x}, y: ${y}`);
+    // Create 2D array to store cell indices for each bin
+    const binIndices: number[][][] = Array.from({ length: numBinsY }, () => 
+      Array.from({ length: numBinsX }, () => [])
+    );
 
-      // initialize indices array for this bin
-      const indices: number[] = [];
-      return {x, y, indices};
-    });
-
-    // iterate over all points and find the bin they fall into
+    // Assign each cell to its corresponding bin
     for (let i = 0; i < xCoord.length; i++) {
       const px = xCoord[i];
       const py = yCoord[i];
 
-      // find the xbin and ybin for this point
+      // Find bin indices
+      const xBin = Math.floor((px - xMin) / binWidthX);
       const yBin = Math.floor((py - yMin) / binWidthY);
-      const xBin = Math.floor((px - xMin) / binWidthX - (yBin % 2 === 0 ? 0 : 0.5));
-  
       
+      // Ensure we're within bounds
       if (xBin >= 0 && xBin < numBinsX && yBin >= 0 && yBin < numBinsY) {
-        bins[yBin * numBinsX + xBin].indices.push(i);
+        binIndices[yBin][xBin].push(i);
       }
     }
 
@@ -201,7 +198,9 @@ const App: Component = () => {
       numBinsY,
       binWidthX,
       binWidthY,
-      bins
+      xBinCenters,
+      yBinCenters,
+      binIndices
     };
   })
 
@@ -370,7 +369,7 @@ const App: Component = () => {
                           {/* Add the visualization toggle in the top-right corner */}
                           <Show when={category.key === "cell_rna_stats" && 
                                     setting.type === "histogram" && 
-                                    hexbin().enabled}>
+                                    binning().enabled}>
                             <div 
                               class="relative rounded-full bg-gray-200 shadow-sm overflow-hidden"
                               style={{ height: "32px", width: "180px" }}
@@ -456,12 +455,12 @@ const App: Component = () => {
                                     additionalAxes={category.additionalAxes}
                                   />
                                 </Match>
-                                {/* Spatial visualization with conditional hexbin */}
+                                {/* Spatial visualization with conditional binning */}
                                 <Match when={setting.type === "histogram" && setting.visualizationType === "spatial"}>
-                                  <Show when={hexbin().enabled && hexbinData()}>
-                                    <HexbinPlot
+                                  <Show when={binning().enabled && binIndices()}>
+                                    <Heatmap
                                       data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
-                                      hexbinData={hexbinData()!}
+                                      binData={binIndices()!}
                                       filterSettings={{
                                         ...setting,
                                         groupBy: currentFilterGroupBy()
@@ -470,7 +469,7 @@ const App: Component = () => {
                                     />
                                   </Show>
                                   
-                                  <Show when={!hexbin().enabled || !hexbinData()}>
+                                  <Show when={!binning().enabled || !binIndices()}>
                                     <ScatterPlot
                                       data={(filters().enabled ? fullyFilteredData() : filteredData())?.cell_rna_stats!}
                                       filterSettings={{
