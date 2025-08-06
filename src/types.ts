@@ -38,21 +38,6 @@ export interface FilterSettings {
   yAxisType?: "linear" | "log";
 }
 
-export type binning = {
-  discrete: boolean;
-  num_bins: number;
-  min: number;
-  max: number;
-  values?: {
-    i: number;
-    x: number;
-    x0: number;
-    x1: number;
-    count_qc_pass: number;
-    count_qc_fail: number;
-  }[];
-};
-
 // New type definitions
 export type ReportStructure = {
   categories: QCCategory[];
