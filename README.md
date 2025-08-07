@@ -1,7 +1,8 @@
 # incubator-ingestion-qc
 
 This is a project to visualize the ingestion qc data. Currently, 2 types of data are supported:
-- Single-cell
+
+- Single-cell (CellRanger ingestion)
 - Xenium
 
 ## Usage
@@ -17,7 +18,7 @@ Generate test data:
 Rscript scripts/generate_data.R
 ```
 
-### To generate both types of reports, run the following commands:
+### Generate Single-Cell Report
 
 Compress single-cell input data:
 
@@ -27,16 +28,14 @@ pnpm run compress_data resources_test/sc_dataset/structure.json src/data/report_
 pnpm run compress_data resources_test/sc_dataset/data.json src/data/dataset.ts
 ```
 
-Generate Single cell report
+Generate single-cell report:
 ```bash
 pnpm run build
 ```
 
-or
+The report should now have been built at `dist/index.html`
 
-```bash
-pnpm run build
-```
+### Generate Xenium Report
 
 Compress Xenium input data:
 
@@ -46,7 +45,7 @@ pnpm run compress_data resources_test/xenium_dataset/structure.json src/data/rep
 pnpm run compress_data resources_test/xenium_dataset/data.json src/data/dataset.ts
 ```
 
-Generate Xenium report
+Generate Xenium report:
 ```bash
 pnpm run build
 ```
