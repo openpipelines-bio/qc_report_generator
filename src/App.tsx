@@ -8,7 +8,7 @@ import {
   type Component,
 } from "solid-js";
 import { createStore, produce } from "solid-js/store";
-import { ReportStructure, FilterSettings, RawData } from "./types";
+import { ReportStructure, FilterSettings, RawData, Settings } from "./types";
 import * as _ from "lodash";
 import { H1, H2, H3 } from "./components/heading";
 import { getData, getReportStructure } from "./lib/get-data";
@@ -20,10 +20,11 @@ import { ScatterPlot } from "./components/scatterplot";
 import { createMemo } from "solid-js";
 import { SampleFilterForm } from "./components/app/sample-filter-form";
 import { filterData, calculateQcPassCells, getPassingCellIndices } from "./lib/data-filters";
-import { transformSampleMetadata, hasSpatialCoordinates } from "./lib/sample-utils";
+import { transformSampleMetadata } from "./lib/sample-utils";
 import { createSettingsForm, SettingsFormProvider } from "./components/app/settings-form";
 import { GlobalVisualizationSettings } from "./components/app/global-visualization-settings";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./components/ui/collapsible";
+import { Heatmap } from "~/components/heatmap";
 
 
 const App: Component = () => {
@@ -47,6 +48,12 @@ const App: Component = () => {
     // make sure to set the initial selected samples
     const sampleIds = data.sample_summary_stats?.columns.find(col => col.name === "sample_id")?.categories || [];
     form.setFieldValue("sampleSelection.selectedSamples", sampleIds);
+
+    // check if the data has spatial coordinates
+    // TODO: allow users to select which coordinates to use
+    const columnNames = data.cell_rna_stats?.columns.map(c => c.name) || [];
+    const hasSpatialCoordinates = columnNames.includes("x_coord") && columnNames.includes("y_coord");
+    form.setFieldValue("binning.enabled", hasSpatialCoordinates);
   });
 
   const sampleMetadata = createMemo(() => {
@@ -99,7 +106,7 @@ const App: Component = () => {
     const result = {...sampleFiltered};
     
     // Get cell QC filter settings from applied settings, not live settings
-    const cellFilters = filters().settings.cell_rna_stats || [];
+    const cellFilters = filters().appliedSettings.cell_rna_stats || [];
     
     // Get the cell IDs that pass QC filters using the helper function
     const cellsData = sampleFiltered.cell_rna_stats;
@@ -121,10 +128,83 @@ const App: Component = () => {
     return result;
   });
 
+  const binning = form.useStore(state => state.values.binning);
+
+  const binIndices = createMemo(() => {
+    // TODO: Could compute the binIndices on the filteredData, and only apply the QC filtering afterwards to
+    // avoid recomputing the indices every time the filters change.
+    const dataSource = filters().enabled ? fullyFilteredData() : filteredData();
+    if (!dataSource) return undefined;
+    if (!binning().enabled) return undefined;
+
+    // Get the x and y coordinates from the cell_rna_stats data
+    const xCol = dataSource.cell_rna_stats.columns.find(col => col.name === binning().xCol);
+    const yCol = dataSource.cell_rna_stats.columns.find(col => col.name === binning().yCol);
+
+    if (!xCol || !yCol) return undefined;
+    if (xCol.dtype !== "numeric" || yCol.dtype !== "numeric") {
+      console.error("Grid binning requires numeric coordinates");
+      return undefined;
+    }
+    const xCoord = xCol!.data as number[];
+    const yCoord = yCol!.data as number[];
+
+    if (!xCoord || !yCoord) return undefined;
+
+    // Add a small offset to avoid having cells fall exactly on the bin edges
+    const xMin = _.min(xCoord)! - 1e-6;
+    const xMax = _.max(xCoord)! + 1e-6;
+    const yMin = _.min(yCoord)! - 1e-6;
+    const yMax = _.max(yCoord)! + 1e-6;
+    const numBinsX = binning().numBinsX;
+    const numBinsY = binning().numBinsY;
+    const binWidthX = (xMax - xMin) / numBinsX;
+    const binWidthY = (yMax - yMin) / numBinsY;
+
+    // Create regular rectangular grid - bins represent center coordinates
+    const xBinCenters = Array.from({ length: numBinsX }, (_, i) => 
+      xMin + (i + 0.5) * binWidthX
+    );
+    const yBinCenters = Array.from({ length: numBinsY }, (_, i) => 
+      yMin + (i + 0.5) * binWidthY
+    );
+
+    // Create 2D array to store cell indices for each bin
+    const binIndices: number[][][] = Array.from({ length: numBinsY }, () => 
+      Array.from({ length: numBinsX }, () => [])
+    );
+
+    // Assign each cell to its corresponding bin
+    for (let i = 0; i < xCoord.length; i++) {
+      const px = xCoord[i];
+      const py = yCoord[i];
+
+      // Find bin indices
+      const xBin = Math.floor((px - xMin) / binWidthX);
+      const yBin = Math.floor((py - yMin) / binWidthY);
+      
+      // Ensure we're within bounds
+      if (xBin >= 0 && xBin < numBinsX && yBin >= 0 && yBin < numBinsY) {
+        binIndices[yBin][xBin].push(i);
+      }
+    }
+
+    return {
+      xMin,
+      xMax,
+      yMin,
+      yMax,
+      numBinsX,
+      numBinsY,
+      binWidthX,
+      binWidthY,
+      xBinCenters,
+      yBinCenters,
+      binIndices
+    };
+  })
+
   // initialise filtersettings
-  type Settings = {
-    [key in keyof RawData]: FilterSettings[];
-  };
   const [settings, setSettings] = createStore<Settings>(
     Object.fromEntries(Object.keys(data() ?? {}).map((key) => [key, []])),
   );
@@ -289,7 +369,7 @@ const App: Component = () => {
                           {/* Add the visualization toggle in the top-right corner */}
                           <Show when={category.key === "cell_rna_stats" && 
                                     setting.type === "histogram" && 
-                                    hasSpatialCoordinates(data()?.cell_rna_stats)}>
+                                    binning().enabled}>
                             <div 
                               class="relative rounded-full bg-gray-200 shadow-sm overflow-hidden"
                               style={{ height: "32px", width: "180px" }}
@@ -357,7 +437,7 @@ const App: Component = () => {
                                 </Match>
                                 <Match when={setting.type === "bar"}>
                                   <BarPlot
-                                    data={filteredData()![category.key]}
+                                    data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
                                     filterSettings={{
                                       ...setting,
                                       groupBy: currentFilterGroupBy()
@@ -367,7 +447,7 @@ const App: Component = () => {
                                 <Match when={setting.type === "histogram" && 
                                             (setting.visualizationType === "histogram" || !setting.visualizationType)}>
                                   <Histogram
-                                    data={filteredData()![category.key]}
+                                    data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
                                     filterSettings={{
                                       ...setting,
                                       groupBy: currentFilterGroupBy()
@@ -375,17 +455,31 @@ const App: Component = () => {
                                     additionalAxes={category.additionalAxes}
                                   />
                                 </Match>
-                                <Match when={setting.type === "histogram" && 
-                                            setting.visualizationType === "spatial"}>
-                                  <ScatterPlot
-                                    data={filteredData()![category.key]}
-                                    filterSettings={{
-                                      ...setting,
-                                      groupBy: currentFilterGroupBy()
-                                    }}
-                                    additionalAxes={category.additionalAxes}
-                                    colorFieldName={setting.field}
-                                  />
+                                {/* Spatial visualization with conditional binning */}
+                                <Match when={setting.type === "histogram" && setting.visualizationType === "spatial"}>
+                                  <Show when={binning().enabled && binIndices()}>
+                                    <Heatmap
+                                      data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
+                                      binData={binIndices()!}
+                                      filterSettings={{
+                                        ...setting,
+                                        groupBy: currentFilterGroupBy()
+                                      }}
+                                      colorFieldName={setting.field}
+                                    />
+                                  </Show>
+                                  
+                                  <Show when={!binning().enabled || !binIndices()}>
+                                    <ScatterPlot
+                                      data={(filters().enabled ? fullyFilteredData() : filteredData())?.cell_rna_stats!}
+                                      filterSettings={{
+                                        ...setting,
+                                        groupBy: currentFilterGroupBy()
+                                      }}
+                                      additionalAxes={category.additionalAxes}
+                                      colorFieldName={setting.field}
+                                    />
+                                  </Show>
                                 </Match>
                               </Switch>
                               <FilterSettingsForm
@@ -416,7 +510,7 @@ const App: Component = () => {
             <p># Cells before filtering: {data()!.cell_rna_stats.num_rows}</p>
           </Show>
           <Show when={data()} fallback={<p># Cells after filtering: ...</p>}>
-            <p># Cells after filtering: {qcPass()}</p>
+            <p># Cells after filtering: {filters().enabled ? qcPass() : data()!.cell_rna_stats.num_rows}</p>
             <div class="mt-4 flex gap-2">
               <form.Field name="filters">
                 {(field) => (
@@ -425,7 +519,7 @@ const App: Component = () => {
                       // Take a snapshot of the current settings and save it as the applied settings
                       field().handleChange({
                         enabled: true,
-                        settings: JSON.parse(JSON.stringify(settings))
+                        appliedSettings: JSON.parse(JSON.stringify(settings))
                       });
                     }}
                     class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
@@ -438,8 +532,21 @@ const App: Component = () => {
                 {(field) => (
                   <button 
                     onClick={() => {
+                      // First, disable filters
                       field().handleChange(false);
-                      // No need to clear applied settings - they'll be ignored when filtersApplied is false
+                      
+                      // Then reset all filter cutoffs in settings
+                      for (const categoryKey in settings) {
+                        settings[categoryKey].forEach((filter, index) => {
+                          setSettings(categoryKey, index, produce(s => {
+                            s.cutoffMin = undefined;
+                            s.cutoffMax = undefined;
+                          }));
+                        });
+                      }
+                      
+                      // Also reset the appliedSettings to ensure the form is consistent
+                      form.setFieldValue("filters.appliedSettings", JSON.parse(JSON.stringify(settings)));
                     }}
                     class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
                     disabled={field().state.value === false}

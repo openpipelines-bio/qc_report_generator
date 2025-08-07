@@ -28,15 +28,3 @@ export function transformSampleMetadata(data?: RawData) {
   
   return result;
 }
-
-/**
- * Checks if the data has spatial coordinates (both x and y)
- */
-export function hasSpatialCoordinates(data?: RawDataCategory): boolean {
-  if (!data) return false;
-
-  const columnNames = data.columns.map(c => c.name);
-  
-  // check whether columnNames contains both x_coord and y_coord
-  return columnNames.includes("x_coord") && columnNames.includes("y_coord");
-}

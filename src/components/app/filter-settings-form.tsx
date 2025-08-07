@@ -50,11 +50,10 @@ export function FilterSettingsForm(props: Props) {
     return hasX && hasY;
   };
 
-  // Inside the component, add this function to calculate filter impact
+  // Inside the component, update this function to be more general
   const getFilterImpact = () => {
-    // Only apply for histogram plots with thresholds and in cell_rna_stats category
+    // Only apply for cell_rna_stats category with thresholds set
     if (props.category !== 'cell_rna_stats' || 
-        props.filterSettings.visualizationType !== 'histogram' || 
         (props.filterSettings.cutoffMin === undefined && props.filterSettings.cutoffMax === undefined)) {
       return null;
     }
@@ -277,7 +276,8 @@ export function FilterSettingsForm(props: Props) {
                       <TextFieldInput />
                     </NumberField>
                     
-                    {props.category === 'cell_rna_stats' && (props.filterSettings.cutoffMin !== undefined || props.filterSettings.cutoffMax !== undefined) && (
+                    {props.category === 'cell_rna_stats' && 
+                     (props.filterSettings.cutoffMin !== undefined || props.filterSettings.cutoffMax !== undefined) && (
                       () => {
                         const impact = getFilterImpact();
                         return impact && (

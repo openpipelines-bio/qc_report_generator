@@ -38,21 +38,6 @@ export interface FilterSettings {
   yAxisType?: "linear" | "log";
 }
 
-export type BinSettings = {
-  discrete: boolean;
-  num_bins: number;
-  min: number;
-  max: number;
-  values?: {
-    i: number;
-    x: number;
-    x0: number;
-    x1: number;
-    count_qc_pass: number;
-    count_qc_fail: number;
-  }[];
-};
-
 // New type definitions
 export type ReportStructure = {
   categories: QCCategory[];
@@ -78,3 +63,17 @@ export type SampleMetadata = Record<string, {
   rna_median_num_nonzero_vars?: number;
   [key: string]: any;
 }>;
+
+export type HeatmapData = {
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
+  numBinsX: number;
+  numBinsY: number;
+  binWidthX: number;
+  binWidthY: number;
+  xBinCenters: number[];
+  yBinCenters: number[];
+  binIndices: number[][][];
+};

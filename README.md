@@ -1,6 +1,9 @@
 # incubator-ingestion-qc
 
-This is a project to visualize the ingestion qc data.
+This is a project to visualize the ingestion qc data. Currently, 2 types of data are supported:
+
+- Single-cell (CellRanger ingestion)
+- Xenium
 
 ## Usage
 
@@ -15,7 +18,9 @@ Generate test data:
 Rscript scripts/generate_data.R
 ```
 
-Compress input data:
+### Generate Single-Cell Report
+
+Compress single-cell input data:
 
 ```bash
 pnpm run compress_data resources_test/sc_dataset/structure.json src/data/report_structure.ts
@@ -23,7 +28,24 @@ pnpm run compress_data resources_test/sc_dataset/structure.json src/data/report_
 pnpm run compress_data resources_test/sc_dataset/data.json src/data/dataset.ts
 ```
 
-Generate report
+Generate single-cell report:
+```bash
+pnpm run build
+```
+
+The report should now have been built at `dist/index.html`
+
+### Generate Xenium Report
+
+Compress Xenium input data:
+
+```bash
+pnpm run compress_data resources_test/xenium_dataset/structure.json src/data/report_structure.ts
+
+pnpm run compress_data resources_test/xenium_dataset/data.json src/data/dataset.ts
+```
+
+Generate Xenium report:
 ```bash
 pnpm run build
 ```

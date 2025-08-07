@@ -7,16 +7,19 @@ type Props = {
 }
 
 export const NumberField: ParentComponent<Props> = (props) => {
-  const [value, setValue] = createSignal(props.value?.toString());
+  const [value, setValue] = createSignal(props.value?.toString() || "");
   const [isValid, setIsValid] = createSignal(true);
 
   createEffect(() => {
-    setValue(props.value?.toString());
-  })
+    // Explicitly handle undefined/null values by setting to empty string
+    setValue(props.value === undefined || props.value === null ? "" : props.value.toString());
+  });
 
   function safeSetValue(value?: string) {
     if (value === undefined || value === "") {
-      props.onChange(undefined)
+      setValue("");
+      setIsValid(true);
+      props.onChange(undefined);
     } else {
       const float = parseFloat(value);
       if (!isFinite(float)) {
