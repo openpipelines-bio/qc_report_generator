@@ -528,6 +528,9 @@ const App: Component = () => {
                                 isGlobalGroupingEnabled={globalVisualization().groupingEnabled}
                                 category={category.key} // Pass the category key
                                 isSpatialData={isSpatialData()} // Pass spatial data flag
+                                settings={settings} // Pass settings
+                                setSettings={setSettings} // Pass setSettings function
+                                filterIndex={i()} // Pass filter index
                               />
                             </div>
                           </CollapsibleContent>
@@ -577,6 +580,7 @@ const App: Component = () => {
                           setSettings(categoryKey, index, produce(s => {
                             s.cutoffMin = undefined;
                             s.cutoffMax = undefined;
+                            s.perSampleFilters = undefined;
                           }));
                         });
                       }

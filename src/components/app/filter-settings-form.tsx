@@ -12,11 +12,13 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/small-card";
-import { FilterSettings, RawDataCategory, RawData } from "~/types";
+import { FilterSettings, RawDataCategory, RawData, Settings } from "~/types";
 import { TextFieldInput, TextFieldLabel } from "../ui/text-field";
 import { NumberField } from "../number-field";
 import { createSignal, Show, For } from "solid-js";
 import { createMemo } from "solid-js";
+import { useSettingsForm } from "./settings-form";
+import { produce, SetStoreFunction } from "solid-js/store";
 
 // Update the props to include the global group by, force group by, and isGlobalGroupingEnabled
 type Props = {
@@ -28,11 +30,17 @@ type Props = {
   isGlobalGroupingEnabled?: boolean;
   category?: keyof RawData;
   isSpatialData?: boolean;
-}
+  // Add settings and setSettings for the action buttons
+  settings: Settings;
+  setSettings: SetStoreFunction<Settings>;
+  filterIndex: number;
+};
 
 export function FilterSettingsForm(props: Props) {
   const [isExpanded, setIsExpanded] = createSignal(false);
   const [perSampleMode, setPerSampleMode] = createSignal(false);
+  const form = useSettingsForm();
+  const filters = form.useStore(state => state.values.filters);
   
   // Get all categorical columns from the data
   const getCategoricalColumns = () => {
@@ -272,7 +280,26 @@ export function FilterSettingsForm(props: Props) {
                         type="checkbox" 
                         id="per-sample-mode"
                         checked={perSampleMode()} 
-                        onChange={(e) => setPerSampleMode(e.target.checked)}
+                        onChange={(e) => {
+                          const isChecked = e.target.checked;
+                          setPerSampleMode(isChecked);
+                          
+                          // If switching away from per-sample mode, clear per-sample filters
+                          if (!isChecked) {
+                            props.updateFilterSettings((settings) => {
+                              settings.perSampleFilters = undefined;
+                              return settings;
+                            });
+                          }
+                          // If switching to per-sample mode, clear global filters
+                          else {
+                            props.updateFilterSettings((settings) => {
+                              settings.cutoffMin = undefined;
+                              settings.cutoffMax = undefined;
+                              return settings;
+                            });
+                          }
+                        }}
                         class="mr-2 h-4 w-4"
                       />
                       <label for="per-sample-mode" class="text-sm font-medium">
@@ -387,6 +414,62 @@ export function FilterSettingsForm(props: Props) {
                 </CardContent>
               </Card>
             </Show>
+          </div>
+          
+          {/* Action buttons for individual filter controls - same as global buttons but for this filter only */}
+          <div class="flex gap-2 mt-4 justify-end">
+            <form.Field name="filters">
+              {(field) => (
+                <button 
+                  onClick={() => {
+                    // Take a snapshot of the current settings and save it as the applied settings
+                    field().handleChange({
+                      enabled: true,
+                      appliedSettings: JSON.parse(JSON.stringify(props.settings))
+                    });
+                  }}
+                  class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Apply Filter
+                </button>
+              )}
+            </form.Field>
+            <form.Field name="filters.enabled">
+              {(field) => (
+                <button 
+                  onClick={() => {
+                    // Reset this specific filter - clear all threshold values
+                    props.updateFilterSettings((settings) => {
+                      settings.cutoffMin = undefined;
+                      settings.cutoffMax = undefined;
+                      settings.perSampleFilters = undefined;
+                      return settings;
+                    });
+                    
+                    // If no other filters have thresholds, disable filtering entirely
+                    const hasAnyThresholds = Object.values(props.settings).some(categoryFilters => 
+                      categoryFilters.some(filter => 
+                        filter.cutoffMin !== undefined || 
+                        filter.cutoffMax !== undefined ||
+                        filter.perSampleFilters !== undefined
+                      )
+                    );
+                    
+                    if (!hasAnyThresholds) {
+                      field().handleChange(false);
+                      form.setFieldValue("filters.appliedSettings", JSON.parse(JSON.stringify(props.settings)));
+                    } else {
+                      // Update applied settings to reflect the reset
+                      form.setFieldValue("filters.appliedSettings", JSON.parse(JSON.stringify(props.settings)));
+                    }
+                  }}
+                  class="px-3 py-1.5 bg-gray-600 text-white text-sm rounded-md hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={props.filterSettings.cutoffMin === undefined && props.filterSettings.cutoffMax === undefined && props.filterSettings.perSampleFilters === undefined}
+                >
+                  Reset Filter
+                </button>
+              )}
+            </form.Field>
           </div>
         </div>
       )}
