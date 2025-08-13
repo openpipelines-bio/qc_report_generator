@@ -54,10 +54,23 @@ const App: Component = () => {
     const columnNames = data.cell_rna_stats?.columns.map(c => c.name) || [];
     const hasSpatialCoordinates = columnNames.includes("x_coord") && columnNames.includes("y_coord");
     form.setFieldValue("binning.enabled", hasSpatialCoordinates);
+    
+    // For spatial data, force grouping to be enabled and groupBy to sample_id
+    if (hasSpatialCoordinates) {
+      form.setFieldValue("globalVisualization.groupingEnabled", true);
+      form.setFieldValue("globalVisualization.groupBy", "sample_id");
+    }
   });
 
   const sampleMetadata = createMemo(() => {
     return transformSampleMetadata(data());
+  });
+
+  // Detect if the data has spatial coordinates
+  const isSpatialData = createMemo(() => {
+    if (!data()) return false;
+    const columnNames = data()!.cell_rna_stats?.columns.map(c => c.name) || [];
+    return columnNames.includes("x_coord") && columnNames.includes("y_coord");
   });
 
   // Add a function to get all categorical columns
@@ -310,7 +323,7 @@ const App: Component = () => {
       <div class="container mx-a space-y-2">
         <H1>OpenPipelines Ingestion QC Report</H1>
         <SampleFilterForm sampleMetadata={sampleMetadata()} />
-        <GlobalVisualizationSettings getCategoricalColumns={getCategoricalColumns} />
+        <GlobalVisualizationSettings getCategoricalColumns={getCategoricalColumns} isSpatialData={isSpatialData} />
         <For each={reportStructure().categories}>
           {(category) => (
             <Show when={(settings[category.key] || []).length > 0}>

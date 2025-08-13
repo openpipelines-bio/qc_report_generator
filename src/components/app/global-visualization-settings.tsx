@@ -1,12 +1,21 @@
-import { Accessor, For, Show, createSignal } from "solid-js";
+import { Accessor, For, Show, createSignal, createEffect } from "solid-js";
 import { useSettingsForm } from "./settings-form";
 
 export function GlobalVisualizationSettings(props: {
   getCategoricalColumns: Accessor<string[]>;
+  isSpatialData: Accessor<boolean>;
 }) {
   const form = useSettingsForm();
   const groupingEnabled = form.useStore(state => state.values.globalVisualization.groupingEnabled);
   const binning = form.useStore(state => state.values.binning);
+  
+  // Force sample_id grouping and enable grouping for spatial data
+  createEffect(() => {
+    if (props.isSpatialData()) {
+      form.setFieldValue("globalVisualization.groupingEnabled", true);
+      form.setFieldValue("globalVisualization.groupBy", "sample_id");
+    }
+  });
   
   // Local signal to track linked state since it's not in the form model
   const [linkedResolutions, setLinkedResolutions] = createSignal(false);
@@ -50,12 +59,18 @@ export function GlobalVisualizationSettings(props: {
                 checked={field().state.value} 
                 onChange={(e) => field().handleChange(e.target.checked)}
                 class="mr-2 h-4 w-4"
+                disabled={props.isSpatialData()}
               />
             )}
           </form.Field>
           <label for="enable-global-grouping" class="w-auto text-sm font-medium">
             Enable global grouping
           </label>
+          <Show when={props.isSpatialData()}>
+            <div class="ml-2 text-xs text-gray-500">
+              (Always enabled for spatial data)
+            </div>
+          </Show>
         </div>
         <div class="flex items-center">
           <label class="w-24">Group By:</label>
@@ -69,7 +84,7 @@ export function GlobalVisualizationSettings(props: {
                 onChange={(e) => {
                   field().handleChange(e.target.value);
                 }}
-                disabled={!groupingEnabled()}
+                disabled={!groupingEnabled() || props.isSpatialData()}
               >
                 <For each={props.getCategoricalColumns()}>
                   {(column) => (
@@ -79,6 +94,11 @@ export function GlobalVisualizationSettings(props: {
               </select>
             )}
           </form.Field>
+          <Show when={props.isSpatialData()}>
+            <div class="ml-2 text-xs text-gray-500">
+              Spatial data is always grouped by sample_id
+            </div>
+          </Show>
         </div>
       </div>
 
