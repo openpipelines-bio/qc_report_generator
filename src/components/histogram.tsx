@@ -109,14 +109,57 @@ function createBinLabels(
   });
 }
 
+// Helper function to wrap long text into multiple lines
+function wrapText(text: string, maxLength: number = 15): string {
+  if (text.length <= maxLength) {
+    return text;
+  }
+  
+  const words = text.split(/[\s_-]+/);
+  const lines: string[] = [];
+  let currentLine = '';
+  
+  for (const word of words) {
+    if (currentLine.length === 0) {
+      currentLine = word;
+    } else if (currentLine.length + word.length + 1 <= maxLength) {
+      currentLine += ' ' + word;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  
+  if (currentLine.length > 0) {
+    lines.push(currentLine);
+  }
+  
+  // If we still have very long words, break them
+  const finalLines: string[] = [];
+  for (const line of lines) {
+    if (line.length <= maxLength) {
+      finalLines.push(line);
+    } else {
+      // Break long words
+      for (let i = 0; i < line.length; i += maxLength) {
+        finalLines.push(line.substring(i, i + maxLength));
+      }
+    }
+  }
+  
+  return finalLines.join('<br>');
+}
+
 // Helper function to create an axis annotation
 function createAxisAnnotation(
   text: string, 
   position: number, 
   fontSize: number = 13
 ): Partial<Layout["annotations"][0]> {
+  const wrappedText = wrapText(text);
+  
   return {
-    text,
+    text: wrappedText,
     x: 0,
     y: position,
     xref: 'paper',
