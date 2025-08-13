@@ -36,6 +36,13 @@ export interface FilterSettings {
   groupBy?: string;
   xAxisType?: "linear" | "log";
   yAxisType?: "linear" | "log";
+  // Per-sample filters for spatial data
+  perSampleFilters?: {
+    [sampleId: string]: {
+      cutoffMin?: number;
+      cutoffMax?: number;
+    };
+  };
 }
 
 // New type definitions

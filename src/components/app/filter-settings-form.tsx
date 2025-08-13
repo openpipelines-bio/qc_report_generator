@@ -15,7 +15,7 @@ import {
 import { FilterSettings, RawDataCategory, RawData } from "~/types";
 import { TextFieldInput, TextFieldLabel } from "../ui/text-field";
 import { NumberField } from "../number-field";
-import { createSignal, Show } from "solid-js";
+import { createSignal, Show, For } from "solid-js";
 import { createMemo } from "solid-js";
 
 // Update the props to include the global group by, force group by, and isGlobalGroupingEnabled
@@ -27,10 +27,12 @@ type Props = {
   forceGroupBy?: string | undefined;
   isGlobalGroupingEnabled?: boolean;
   category?: keyof RawData;
+  isSpatialData?: boolean;
 }
 
 export function FilterSettingsForm(props: Props) {
   const [isExpanded, setIsExpanded] = createSignal(false);
+  const [perSampleMode, setPerSampleMode] = createSignal(false);
   
   // Get all categorical columns from the data
   const getCategoricalColumns = () => {
@@ -42,13 +44,22 @@ export function FilterSettingsForm(props: Props) {
     return ["<none>", ...categoricalColumns];
   };
 
-  // Remove getNumericalColumns() function as it's no longer needed
+  // Get available sample IDs for per-sample filtering
+  const getSampleIds = () => {
+    const sampleColumn = props.data.columns.find(col => col.name === "sample_id");
+    return sampleColumn?.categories || [];
+  };
 
   // Add a constant to check if the data has spatial coordinates
   const hasSpatialCoordinates = () => {
     const hasX = props.data.columns.some(c => c.name === "x_coord");
     const hasY = props.data.columns.some(c => c.name === "y_coord");
     return hasX && hasY;
+  };
+
+  // Check if per-sample filtering is available (spatial data + cell_rna_stats category)
+  const canUsePerSampleFiltering = () => {
+    return props.isSpatialData && props.category === "cell_rna_stats" && hasSpatialCoordinates();
   };
 
   // Inside the component, update this function to be more general
@@ -254,50 +265,125 @@ export function FilterSettingsForm(props: Props) {
               <Card>
                 <CardHeader>
                   <CardTitle>Filter thresholds</CardTitle>
+                  {/* Add per-sample filtering toggle for spatial data */}
+                  <Show when={canUsePerSampleFiltering()}>
+                    <div class="flex items-center mt-2">
+                      <input 
+                        type="checkbox" 
+                        id="per-sample-mode"
+                        checked={perSampleMode()} 
+                        onChange={(e) => setPerSampleMode(e.target.checked)}
+                        class="mr-2 h-4 w-4"
+                      />
+                      <label for="per-sample-mode" class="text-sm font-medium">
+                        Use per-sample thresholds
+                      </label>
+                    </div>
+                  </Show>
                 </CardHeader>
                 <CardContent>
-                  <div class="grid grid-cols-2 gap-2">
-                    <NumberField
-                      value={props.filterSettings.cutoffMin}
-                      onChange={(value) => {
-                        props.updateFilterSettings((settings) => {
-                          settings.cutoffMin = value;
+                  <Show when={!perSampleMode() || !canUsePerSampleFiltering()}>
+                    {/* Global filter thresholds */}
+                    <div class="grid grid-cols-2 gap-2">
+                      <NumberField
+                        value={props.filterSettings.cutoffMin}
+                        onChange={(value) => {
+                          props.updateFilterSettings((settings) => {
+                            settings.cutoffMin = value;
+                            return settings;
+                          });
+                        }}
+                      >
+                        <TextFieldLabel>Min</TextFieldLabel>
+                        <TextFieldInput />
+                      </NumberField>
+                      <NumberField
+                        value={props.filterSettings.cutoffMax}
+                        onChange={(value) => props.updateFilterSettings((settings) => {
+                          settings.cutoffMax = value;
                           return settings;
-                        });
-                      }}
-                    >
-                      <TextFieldLabel>Min</TextFieldLabel>
-                      <TextFieldInput />
-                    </NumberField>
-                    <NumberField
-                      value={props.filterSettings.cutoffMax}
-                      onChange={(value) => props.updateFilterSettings((settings) => {
-                        settings.cutoffMax = value;
-                        return settings;
-                      })}
-                    >
-                      <TextFieldLabel>Max</TextFieldLabel>
-                      <TextFieldInput />
-                    </NumberField>
-                    
-                    {props.category === 'cell_rna_stats' && 
-                     (props.filterSettings.cutoffMin !== undefined || props.filterSettings.cutoffMax !== undefined) && (
-                      () => {
-                        const impact = getFilterImpact();
-                        return impact && (
-                          <div class="col-span-2 mt-2 text-sm text-gray-600">
-                            <div class="flex items-center">
-                              <span class="mr-2">Filter impact:</span>
-                              <span class={impact.isHighImpact ? "text-amber-600 font-medium" : ""}>
-                                Removing {impact.affectedCount} of {impact.totalCells} cells ({impact.percent}%)
-                              </span>
-                              {impact.isHighImpact && <span class="text-amber-600 ml-2">⚠️ High impact</span>}
+                        })}
+                      >
+                        <TextFieldLabel>Max</TextFieldLabel>
+                        <TextFieldInput />
+                      </NumberField>
+                      
+                      {props.category === 'cell_rna_stats' && 
+                       (props.filterSettings.cutoffMin !== undefined || props.filterSettings.cutoffMax !== undefined) && (
+                        () => {
+                          const impact = getFilterImpact();
+                          return impact && (
+                            <div class="col-span-2 mt-2 text-sm text-gray-600">
+                              <div class="flex items-center">
+                                <span class="mr-2">Filter impact:</span>
+                                <span class={impact.isHighImpact ? "text-amber-600 font-medium" : ""}>
+                                  Removing {impact.affectedCount} of {impact.totalCells} cells ({impact.percent}%)
+                                </span>
+                                {impact.isHighImpact && <span class="text-amber-600 ml-2">⚠️ High impact</span>}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      }
-                    )()}
-                  </div>
+                          );
+                        }
+                      )()}
+                    </div>
+                  </Show>
+                  
+                  {/* Per-sample filter thresholds for spatial data */}
+                  <Show when={perSampleMode() && canUsePerSampleFiltering()}>
+                    <div class="space-y-4">
+                      <div class="text-sm text-gray-600 mb-3">
+                        Set different filter thresholds for each sample. Leave blank to use no threshold for that sample.
+                      </div>
+                      <For each={getSampleIds()}>
+                        {(sampleId) => {
+                          const sampleFilter = props.filterSettings.perSampleFilters?.[sampleId];
+                          return (
+                            <div class="border rounded-md p-3 bg-gray-50">
+                              <h4 class="font-medium text-sm mb-2">{sampleId}</h4>
+                              <div class="grid grid-cols-2 gap-2">
+                                <NumberField
+                                  value={sampleFilter?.cutoffMin}
+                                  onChange={(value) => {
+                                    props.updateFilterSettings((settings) => {
+                                      if (!settings.perSampleFilters) {
+                                        settings.perSampleFilters = {};
+                                      }
+                                      if (!settings.perSampleFilters[sampleId]) {
+                                        settings.perSampleFilters[sampleId] = {};
+                                      }
+                                      settings.perSampleFilters[sampleId].cutoffMin = value;
+                                      return settings;
+                                    });
+                                  }}
+                                >
+                                  <TextFieldLabel>Min</TextFieldLabel>
+                                  <TextFieldInput />
+                                </NumberField>
+                                <NumberField
+                                  value={sampleFilter?.cutoffMax}
+                                  onChange={(value) => {
+                                    props.updateFilterSettings((settings) => {
+                                      if (!settings.perSampleFilters) {
+                                        settings.perSampleFilters = {};
+                                      }
+                                      if (!settings.perSampleFilters[sampleId]) {
+                                        settings.perSampleFilters[sampleId] = {};
+                                      }
+                                      settings.perSampleFilters[sampleId].cutoffMax = value;
+                                      return settings;
+                                    });
+                                  }}
+                                >
+                                  <TextFieldLabel>Max</TextFieldLabel>
+                                  <TextFieldInput />
+                                </NumberField>
+                              </div>
+                            </div>
+                          );
+                        }}
+                      </For>
+                    </div>
+                  </Show>
                 </CardContent>
               </Card>
             </Show>

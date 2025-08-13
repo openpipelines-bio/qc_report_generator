@@ -66,6 +66,11 @@ export function calculateQcPassCells(data: RawData | undefined, cellRnaFilters: 
   const numCells = cellRnaData.num_rows;
   const passFilter = new Array(numCells).fill(true);
   
+  // Get sample column for per-sample filtering
+  const sampleIdColumn = cellRnaData.columns.find(c => c.name === "sample_id");
+  const sampleIdData = sampleIdColumn?.data;
+  const sampleCategories = sampleIdColumn?.categories;
+  
   // Apply all active filters
   for (const filterSettings of cellRnaFilters) {
     if (filterSettings.type !== "histogram") continue;
@@ -74,20 +79,36 @@ export function calculateQcPassCells(data: RawData | undefined, cellRnaFilters: 
     if (!column) continue;
     
     const values = column.data as number[];
-    const cutoffMin = filterSettings.cutoffMin;
-    const cutoffMax = filterSettings.cutoffMax;
+    let cutoffMin = filterSettings.cutoffMin;
+    let cutoffMax = filterSettings.cutoffMax;
     
-    // Skip filters with no cutoffs
-    if (cutoffMin === undefined && cutoffMax === undefined) continue;
+    // Skip filters with no cutoffs (unless there are per-sample filters)
+    if (cutoffMin === undefined && cutoffMax === undefined && !filterSettings.perSampleFilters) continue;
     
     // Apply min/max cutoffs more efficiently
     for (let i = 0; i < numCells; i++) {
       // Skip cells that already failed
       if (!passFilter[i]) continue;
       
+      let effectiveCutoffMin = cutoffMin;
+      let effectiveCutoffMax = cutoffMax;
+      
+      // Check for per-sample filters for spatial data
+      if (filterSettings.perSampleFilters && sampleIdData && sampleCategories) {
+        const sampleIndex = sampleIdData[i] as number;
+        const sampleId = sampleCategories[sampleIndex];
+        const sampleFilter = filterSettings.perSampleFilters[sampleId];
+        
+        if (sampleFilter) {
+          // Use per-sample thresholds if available
+          effectiveCutoffMin = sampleFilter.cutoffMin !== undefined ? sampleFilter.cutoffMin : effectiveCutoffMin;
+          effectiveCutoffMax = sampleFilter.cutoffMax !== undefined ? sampleFilter.cutoffMax : effectiveCutoffMax;
+        }
+      }
+      
       // Check cutoffs
-      if ((cutoffMin !== undefined && values[i] < cutoffMin) ||
-          (cutoffMax !== undefined && values[i] > cutoffMax)) {
+      if ((effectiveCutoffMin !== undefined && values[i] < effectiveCutoffMin) ||
+          (effectiveCutoffMax !== undefined && values[i] > effectiveCutoffMax)) {
         passFilter[i] = false;
       }
     }
@@ -105,9 +126,14 @@ export function getPassingCellIndices(cellsData: any, cellFilters: FilterSetting
     passingCellIndices.add(i);
   }
   
+  // Get sample column for per-sample filtering
+  const sampleIdColumn = cellsData.columns.find((col: { name: string }) => col.name === "sample_id");
+  const sampleIdData = sampleIdColumn?.data;
+  const sampleCategories = sampleIdColumn?.categories;
+  
   // Apply each filter
   for (const filter of cellFilters) {
-    if (filter.cutoffMin !== undefined || filter.cutoffMax !== undefined) {
+    if (filter.cutoffMin !== undefined || filter.cutoffMax !== undefined || filter.perSampleFilters) {
       const columnIndex: number = cellsData.columns.findIndex((col: { name: string }) => col.name === filter.field);
       if (columnIndex !== -1) {
         const columnData = cellsData.columns[columnIndex].data;
@@ -117,8 +143,24 @@ export function getPassingCellIndices(cellsData: any, cellFilters: FilterSetting
           if (!passingCellIndices.has(i)) continue; // Skip already filtered
           
           const value = columnData[i];
-          if ((filter.cutoffMin !== undefined && value < filter.cutoffMin) || 
-              (filter.cutoffMax !== undefined && value > filter.cutoffMax)) {
+          let cutoffMin = filter.cutoffMin;
+          let cutoffMax = filter.cutoffMax;
+          
+          // Check for per-sample filters for spatial data
+          if (filter.perSampleFilters && sampleIdData && sampleCategories) {
+            const sampleIndex = sampleIdData[i] as number;
+            const sampleId = sampleCategories[sampleIndex];
+            const sampleFilter = filter.perSampleFilters[sampleId];
+            
+            if (sampleFilter) {
+              // Use per-sample thresholds if available
+              cutoffMin = sampleFilter.cutoffMin !== undefined ? sampleFilter.cutoffMin : cutoffMin;
+              cutoffMax = sampleFilter.cutoffMax !== undefined ? sampleFilter.cutoffMax : cutoffMax;
+            }
+          }
+          
+          if ((cutoffMin !== undefined && value < cutoffMin) || 
+              (cutoffMax !== undefined && value > cutoffMax)) {
             passingCellIndices.delete(i);
           }
         }

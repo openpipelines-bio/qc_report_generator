@@ -256,17 +256,39 @@ const App: Component = () => {
     let yamlContent = "# OpenPipelines Ingestion QC Filter Settings\n";
     yamlContent += "# Generated on " + new Date().toISOString() + "\n\n";
     
+    // Add spatial data indication if applicable
+    if (isSpatialData()) {
+      yamlContent += "# Spatial data detected - includes per-sample filters\n\n";
+    }
+    
     // Iterate through all categories and filters
     for (const categoryKey in exportSettings) {
       exportSettings[categoryKey].forEach((filter: FilterSettings) => {
-        // Add min threshold if it exists
+        // Add global min/max thresholds if they exist
         if (filter.cutoffMin !== undefined) {
           yamlContent += `min_${filter.field}: ${filter.cutoffMin}\n`;
         }
         
-        // Add max threshold if it exists
         if (filter.cutoffMax !== undefined) {
           yamlContent += `max_${filter.field}: ${filter.cutoffMax}\n`;
+        }
+        
+        // Add per-sample filters for spatial data
+        if (filter.perSampleFilters && isSpatialData()) {
+          yamlContent += `# Per-sample filters for ${filter.field}\n`;
+          
+          for (const sampleId in filter.perSampleFilters) {
+            const sampleFilter = filter.perSampleFilters[sampleId];
+            
+            if (sampleFilter.cutoffMin !== undefined) {
+              yamlContent += `min_${filter.field}_${sampleId}: ${sampleFilter.cutoffMin}\n`;
+            }
+            
+            if (sampleFilter.cutoffMax !== undefined) {
+              yamlContent += `max_${filter.field}_${sampleId}: ${sampleFilter.cutoffMax}\n`;
+            }
+          }
+          yamlContent += "\n";
         }
       });
     }
@@ -505,6 +527,7 @@ const App: Component = () => {
                                 forceGroupBy={category.key === "metrics_cellranger_stats" ? "sample_id" : undefined}
                                 isGlobalGroupingEnabled={globalVisualization().groupingEnabled}
                                 category={category.key} // Pass the category key
+                                isSpatialData={isSpatialData()} // Pass spatial data flag
                               />
                             </div>
                           </CollapsibleContent>
