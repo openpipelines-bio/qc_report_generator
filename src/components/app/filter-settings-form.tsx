@@ -16,6 +16,7 @@ import { FilterSettings, RawDataCategory, RawData } from "~/types";
 import { TextFieldInput, TextFieldLabel } from "../ui/text-field";
 import { NumberField } from "../number-field";
 import { createSignal, Show } from "solid-js";
+import { createMemo } from "solid-js";
 
 // Update the props to include the global group by, force group by, and isGlobalGroupingEnabled
 type Props = {
@@ -86,8 +87,9 @@ export function FilterSettingsForm(props: Props) {
   };
   
   // Update these variable definitions
-  const isBarPlot = props.filterSettings.type === "bar";
-  const isHistogram = (props.filterSettings.type === "histogram" || props.filterSettings.visualizationType === "histogram");
+  const isBarPlot = () => props.filterSettings.type === "bar";
+  const isHistogram = () => (props.filterSettings.type === "histogram" || props.filterSettings.visualizationType === "histogram");
+  const isSpatialVisualization = () => props.filterSettings.visualizationType === "spatial";
   
   return (
     <div>
@@ -95,7 +97,7 @@ export function FilterSettingsForm(props: Props) {
         onClick={() => setIsExpanded(!isExpanded())}
         class="w-full px-4 py-2 text-left text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md flex justify-between items-center mb-2"
       >
-        <span>Visualisation Settings {isBarPlot ? "" : "& Filter Thresholds"}</span>
+        <span>Visualisation Settings {isBarPlot() ? "" : "& Filter Thresholds"}</span>
         <span class="transition-transform duration-200" classList={{ "rotate-180": isExpanded() }}>
           ▼
         </span>
@@ -111,7 +113,7 @@ export function FilterSettingsForm(props: Props) {
               <CardContent>
                 <div class="grid grid-cols-2 gap-2">
                   {/* Only show Min/Max zoom fields for histograms */}
-                  <Show when={isHistogram}>
+                  <Show when={isHistogram()}>
                     <>
                       <NumberField
                         value={props.filterSettings.zoomMin}
@@ -176,8 +178,8 @@ export function FilterSettingsForm(props: Props) {
                     )}
                   </div>
                   
-                  {/* Only show #Bins for histograms */}
-                  <Show when={isHistogram}>
+                  {/* Only show #Bins for histograms that are not spatial */}
+                  <Show when={isHistogram() && !isSpatialVisualization()}>
                     <NumberField
                       value={props.filterSettings.nBins}
                       onChange={(value) => props.updateFilterSettings((settings) => {
@@ -190,33 +192,35 @@ export function FilterSettingsForm(props: Props) {
                     </NumberField>
                   </Show>
                   
-                  {/* Always show X-Axis Scale */}
-                  <Select
-                    value={props.filterSettings.xAxisType || "linear"}
-                    onChange={(value) =>
-                      props.updateFilterSettings((settings) => {
-                        settings.xAxisType = value as "log" | "linear";
-                        return settings;
-                      })
-                    }
-                    options={["linear", "log"]}
-                    itemComponent={(props) => (
-                      <SelectItem item={props.item}>
-                        {props.item.rawValue}
-                      </SelectItem>
-                    )}
-                  >
-                    <Label>X-Axis Scale</Label>
-                    <SelectTrigger aria-label="Select X-axis scale">
-                      <SelectValue<"linear" | "log">>
-                        {(state) => state.selectedOption()}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent />
-                  </Select>
+                  {/* Only show X-Axis Scale for non-spatial visualizations */}
+                  <Show when={!isSpatialVisualization()}>
+                    <Select
+                      value={props.filterSettings.xAxisType || "linear"}
+                      onChange={(value) =>
+                        props.updateFilterSettings((settings) => {
+                          settings.xAxisType = value as "log" | "linear";
+                          return settings;
+                        })
+                      }
+                      options={["linear", "log"]}
+                      itemComponent={(props) => (
+                        <SelectItem item={props.item}>
+                          {props.item.rawValue}
+                        </SelectItem>
+                      )}
+                    >
+                      <Label>X-Axis Scale</Label>
+                      <SelectTrigger aria-label="Select X-axis scale">
+                        <SelectValue<"linear" | "log">>
+                          {(state) => state.selectedOption()}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent />
+                    </Select>
+                  </Show>
                   
-                  {/* Update Y-Axis Scale to only show for histograms */}
-                  <Show when={isHistogram}>
+                  {/* Update Y-Axis Scale to only show for histograms that are not spatial */}
+                  <Show when={isHistogram() && !isSpatialVisualization()}>
                     <Select
                       value={props.filterSettings.yAxisType || "linear"}
                       onChange={(value) =>
