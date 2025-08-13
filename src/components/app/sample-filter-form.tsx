@@ -1,5 +1,6 @@
 import { For, Match, Switch, createSignal } from "solid-js";
 import { useSettingsForm } from "./settings-form";
+import { RawData } from "~/types";
 
 interface SampleMetadata {
   rna_num_barcodes?: number;
@@ -12,6 +13,7 @@ interface SampleMetadata {
 
 interface SampleFilterFormProps {
   sampleMetadata: Record<string, SampleMetadata>;
+  data?: RawData;
 }
 
 function SimpleViewMode(props: SampleFilterFormProps) {
@@ -69,7 +71,7 @@ function TableViewMode(props: SampleFilterFormProps) {
                   </svg>
                   <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
                     <div class="bg-black text-white text-xs rounded py-1 px-2 max-w-xs">
-                      Cells that passed pre-filtering (min. total counts = 10, min. non-zero genes = 10)
+                      Cells that passed pre-filtering (min. total counts = {props.data?.cell_rna_stats?.min_total_counts ?? "N/A"}, min. non-zero genes = {props.data?.cell_rna_stats?.min_num_nonzero_vars ?? "N/A"})
                     </div>
                   </div>
                 </div>
@@ -227,8 +229,10 @@ export function SampleFilterForm(props: SampleFilterFormProps) {
             </svg>
           </div>
           <div class="ml-3">
-            <h4 class="font-medium text-blue-800">Data was pre-filtered with default thresholds (min. total counts = 10, min. non-zero genes = 10). 
-            The "Filtered Barcodes" column shows the number of cells that passed this initial filtering.</h4>
+            <h4 class="font-medium text-blue-800">
+              Data was pre-filtered with thresholds (min. total counts = {props.data?.cell_rna_stats?.min_total_counts ?? "N/A"}, min. non-zero genes = {props.data?.cell_rna_stats?.min_num_nonzero_vars ?? "N/A"}). 
+              The "Filtered Barcodes" column shows the number of cells that passed this initial filtering.
+            </h4>
           </div>
         </div>
       </div>

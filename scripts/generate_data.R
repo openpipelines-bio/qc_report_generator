@@ -59,6 +59,8 @@ transform_df <- function(df) {
   list(
     num_rows = nrow(df),
     num_cols = ncol(df),
+    min_total_counts = 10,
+    min_num_nonzero_vars = 10,
     columns = columns
   )
 }

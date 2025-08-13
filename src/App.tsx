@@ -309,7 +309,7 @@ const App: Component = () => {
     <SettingsFormProvider form={form}>
       <div class="container mx-a space-y-2">
         <H1>OpenPipelines Ingestion QC Report</H1>
-        <SampleFilterForm sampleMetadata={sampleMetadata()} />
+        <SampleFilterForm sampleMetadata={sampleMetadata()} data={data()} />
         <GlobalVisualizationSettings getCategoricalColumns={getCategoricalColumns} />
         <For each={reportStructure().categories}>
           {(category) => (
