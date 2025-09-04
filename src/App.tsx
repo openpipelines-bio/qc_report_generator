@@ -11,7 +11,7 @@ import { createStore, produce } from "solid-js/store";
 import { ReportStructure, FilterSettings, RawData, Settings } from "./types";
 import * as _ from "lodash";
 import { H1, H2, H3 } from "./components/heading";
-import { getData, getReportStructure } from "./lib/get-data";
+import { getData, getReportStructure, initializeDataLoader } from "./lib/get-data";
 import { Histogram } from "./components/histogram";
 import { FilterSettingsForm } from "./components/app/filter-settings-form";
 import { DataSummaryTable } from "./components/app/data-summary-table";
@@ -38,6 +38,9 @@ const App: Component = () => {
 
   // read data in memory
   createEffect(async () => {
+    console.log("initializing data loader");
+    await initializeDataLoader();
+    
     console.log("reading qc categories");
     setReportStructure(await getReportStructure());
 

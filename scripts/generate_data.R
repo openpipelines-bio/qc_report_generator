@@ -157,7 +157,7 @@ generate_sc_dataset <- function(
   # Generate sample summary stats
   sample_summary_stats <- data.frame(
     sample_id = factor(sample_ids),
-    rna_num_barcodes = rep(10000, num_samples),
+    rna_num_barcodes = rep(round(cells_per_sample * 1.5), num_samples),
     rna_num_barcodes_filtered = rep(cells_per_sample, num_samples),
     rna_sum_total_counts = tapply(
       cell_rna_stats$total_counts,
@@ -172,7 +172,7 @@ generate_sc_dataset <- function(
     rna_overall_num_nonzero_vars = tapply(
       cell_rna_stats$num_nonzero_vars,
       cell_rna_stats$sample_id,
-      function(x) max(x) * 49
+      function(x) max(x) * 1.2  # More realistic gene count multiplier
     ),
     rna_median_num_nonzero_vars = tapply(
       cell_rna_stats$num_nonzero_vars,
@@ -483,16 +483,57 @@ generators <- list(
     data_fun = generate_sc_dataset,
     structure_fun = generate_sc_structure
   ),
+  sc_large = list(
+    label = "Large-scale single-cell dataset",
+    data_fun = function() {
+      generate_sc_dataset(
+        num_samples = 10,
+        cells_per_sample = 120000,
+        total_counts_range = c(500, 15000),      # More realistic UMI counts
+        nonzero_vars_range = c(1000, 8000),     # More realistic gene counts
+        cellbender_background_mean = 0.15,      # Reduced background
+        cellbender_background_sd = 0.1,
+        cell_size_base = 25,                    # Larger cell size
+        cell_size_sd = 15,
+        droplet_efficiency_base = 0.95,
+        droplet_efficiency_range = 0.03,
+        mito_fraction_mean = 0.05,              # Lower mitochondrial fraction
+        mito_fraction_sd = 0.03,
+        ribo_fraction_mean = 0.15,              # Higher ribosomal fraction
+        ribo_fraction_sd = 0.05
+      )
+    },
+    structure_fun = generate_sc_structure
+  ),
   xenium = list(
     label = "Xenium dataset",
     data_fun = generate_xenium_dataset,
+    structure_fun = generate_xenium_structure
+  ),
+  xenium_large = list(
+    label = "Large-scale Xenium dataset",
+    data_fun = function() {
+      generate_xenium_dataset(
+        num_samples = 8,
+        cells_per_sample = 150000,               # 1.2M total cells
+        total_counts_range = c(50, 800),         # More realistic spatial counts
+        nonzero_vars_range = c(20, 150),         # More genes detected in spatial
+        cell_area_range = c(25, 200),            # Wider range of cell areas
+        nucleus_ratio_range = c(0.08, 0.45),     # Wider nucleus ratio range
+        spatial_noise = 3,                       # Tighter spatial organization
+        mito_fraction_mean = 0.06,               # Lower mitochondrial in spatial
+        mito_fraction_sd = 0.025,
+        ribo_fraction_mean = 0.18,               # Higher ribosomal in spatial
+        ribo_fraction_sd = 0.04
+      )
+    },
     structure_fun = generate_xenium_structure
   )
 )
 
 # Generate either sc or xenium dataset
 if (!dataset_type %in% names(generators)) {
-  stop("Invalid dataset type. Use 'sc' for single-cell or 'xenium' for Xenium dataset.")
+  stop("Invalid dataset type. Use 'sc', 'sc_large', 'xenium', or 'xenium_large'.")
 }
 
 params <- generators[[dataset_type]]
