@@ -1,6 +1,6 @@
 import Plot from "@ralphsmith80/solid-plotly.js";
 import { Layout, PlotData } from "plotly.js-dist-min";
-import { plotlyConfig } from "~/lib/plots";
+import { plotlyConfig, createScatterTrace, createBasicLayout } from "~/lib/plots";
 import { FilterSettings, RawDataCategory } from "~/types";
 import { createMemo } from "solid-js";
 
@@ -10,69 +10,6 @@ type Props = {
   additionalAxes: boolean;
   colorFieldName?: string;
 };
-
-
-function createTrace(
-  x: Array<number | string | Date | null>, 
-  y: Array<number | string | Date | null>, 
-  name: string, 
-  color?: Array<number | string> | string | undefined, 
-  isSpatial: boolean = false, 
-  axisIndex: number = 0,
-  showColorbar: boolean = false,
-  colorbarTitle?: string  
-): Partial<PlotData> {
-  return {
-    type: "scatter",
-    mode: "markers",
-    x, y, name,
-    marker: {
-      size: isSpatial ? 6 : 8,
-      opacity: 0.7,
-      color,
-      line: { width: isSpatial ? 1 : 0, color: 'rgba(0,0,0,0.3)' },
-      colorbar: showColorbar ? {
-        title: colorbarTitle || "",
-        titleside: "right",
-        thickness: 15,
-        len: 300,        
-        lenmode: 'pixels', 
-        y: 0.5,           
-        yanchor: 'middle', 
-        x: 1.05,
-        xanchor: "left"
-      } : undefined
-    },
-    xaxis: axisIndex > 0 ? `x${axisIndex}` : "x",
-    yaxis: axisIndex > 0 ? `y${axisIndex}` : "y",
-    showlegend: axisIndex === 0, 
-  };
-}
-
-// Create basic layout with axes
-function createLayout(
-  xTitle: string, 
-  yTitle: string, 
-  height?: number, 
-  isSpatial: boolean = false
-): Partial<Layout> {
-  return {
-    xaxis: {
-      title: xTitle,
-      fixedrange: !isSpatial,
-      automargin: true,
-    },
-    yaxis: {
-      title: yTitle,
-      fixedrange: !isSpatial,
-      automargin: true,
-    },
-    height: height || 400,
-    showlegend: true,
-    margin: { t: 20, r: 30, b: 60, l: 80 },
-    hovermode: "closest"
-  };
-}
 
 export function ScatterPlot(props: Props) {
   // Check if data has spatial coordinates
@@ -116,7 +53,7 @@ export function ScatterPlot(props: Props) {
     const yValues = yColumn.data;
     
     if (!props.filterSettings.groupBy) {
-      return [createTrace(
+      return [createScatterTrace(
         xValues, 
         yValues, 
         "All Data", 
@@ -137,14 +74,13 @@ export function ScatterPlot(props: Props) {
     if (props.additionalAxes) {
       const plots: Partial<PlotData>[] = [];
       
-      // Create individual plots for each group
       uniqueGroups.forEach((group, i) => {
         const indices = groupValues.map((val, idx) => val === group ? idx : -1).filter(idx => idx !== -1);
         const filteredX = indices.map(idx => xValues[idx]);
         const filteredY = indices.map(idx => yValues[idx]);
         const groupName = groupColumn.categories?.[group] || `Group ${group}`;
         
-        plots.push(createTrace(
+        plots.push(createScatterTrace(
           filteredX, 
           filteredY, 
           groupName,
@@ -165,7 +101,7 @@ export function ScatterPlot(props: Props) {
       const filteredY = indices.map(idx => yValues[idx]);
       const groupName = groupColumn.categories?.[group] || `Group ${group}`;
       
-      return createTrace(
+      return createScatterTrace(
         filteredX, 
         filteredY, 
         groupName,
@@ -186,17 +122,16 @@ export function ScatterPlot(props: Props) {
     return colorColumn?.data;
   }
   
-  // Create plot layout
   const plotLayout = createMemo(() => {
     const xTitle = isSpatial() ? "X Position (µm)" : (props.filterSettings.label || xFieldName());
     const yTitle = isSpatial() ? "Y Position (µm)" : (props.filterSettings.yLabel || yFieldName());
     
     if (!props.filterSettings.groupBy || !props.additionalAxes) {
-      return createLayout(xTitle, yTitle, isSpatial() ? 600 : 400, isSpatial());
+      return createBasicLayout(xTitle, yTitle, isSpatial() ? 600 : 400, isSpatial());
     }
     
     const groupColumn = props.data.columns.find(c => c.name === props.filterSettings.groupBy);
-    if (!groupColumn) return createLayout(xTitle, yTitle, 400, isSpatial());
+    if (!groupColumn) return createBasicLayout(xTitle, yTitle, 400, isSpatial());
     
     const groupValues = groupColumn.data;
     const uniqueGroups = [...new Set(groupValues)].sort();
@@ -236,7 +171,7 @@ export function ScatterPlot(props: Props) {
       return layout;
     }
     
-
+    // Multiple groups layout
     const columns = 2;
     const rows = Math.ceil(numGroups / columns);
     

@@ -1,6 +1,6 @@
 import Plot from "@ralphsmith80/solid-plotly.js";
 import { Layout, PlotData } from "plotly.js-dist-min";
-import { plotlyConfig } from "~/lib/plots";
+import { plotlyConfig, getHeatmapColorValue, createHeatmapGrid } from "~/lib/plots";
 import { FilterSettings, RawDataCategory, HeatmapData } from "~/types";
 import { createMemo, Show } from "solid-js";
 import * as _ from "lodash";
@@ -12,70 +12,17 @@ type HeatmapProps = {
   colorFieldName?: string;
 };
 
-function getColorValue(dtype: string, colorValues: number[], binData: HeatmapData, groupValues: number[] | undefined, group: number | undefined): (number | undefined)[][] {
-  // Create a 2D matrix to store bin colors [yBin][xBin]
-  const binColors: (number | undefined)[][] = Array.from({ length: binData.numBinsY }, () => 
-    Array.from({ length: binData.numBinsX }, () => undefined)
-  );
-
-  // Process each bin
-  for (let yBin = 0; yBin < binData.numBinsY; yBin++) {
-    for (let xBin = 0; xBin < binData.numBinsX; xBin++) {
-      let values = binData.binIndices[yBin][xBin].map(i => colorValues[i]);
-
-      // Filter values by group if provided
-      if (groupValues && group !== undefined) {
-        values = values.filter((_, idx) => groupValues[binData.binIndices[yBin][xBin][idx]] === group);
-      }
-
-      // Return 0 for empty bins instead of undefined
-      if (values.length === 0) {
-        binColors[yBin][xBin] = 0;
-        continue;
-      }
-
-      if (dtype === "categorical") {
-        // compute mode
-        const mode = _.flow(
-          _.countBy,
-          _.toPairs,
-          _.partialRight(_.maxBy, _.last),
-          _.head
-        )(values);
-        binColors[yBin][xBin] = mode as number | undefined;
-      } else if (["numeric", "integer", "boolean"].includes(dtype)) {
-        // compute mean
-        const mean = _.mean(values);
-        binColors[yBin][xBin] = mean as number | undefined;
-      }
-    }
-  }
-
-  return binColors;
-}
-
-// Helper to convert bin grid data to heatmap grid
-function createHeatmapGrid(binData: HeatmapData, binColors: (number | undefined)[][]) {
-  return {
-    x: binData.xBinCenters,
-    y: binData.yBinCenters,
-    z: binColors
-  };
-}
-
 export function Heatmap(props: HeatmapProps) {
-  // Get field for coloring
   const colorField = createMemo(() => 
     props.colorFieldName || props.filterSettings.field
   );
   
-  // Create plot data
   const plotData = createMemo(() => {
     const colorColumn = props.data.columns.find(c => c.name === colorField());
     if (!colorColumn) return [];
     const colorValues = colorColumn.data as number[];
     
-    const binColors = getColorValue(colorColumn.dtype, colorValues, props.binData, undefined, undefined);
+    const binColors = getHeatmapColorValue(colorColumn.dtype, colorValues, props.binData, undefined, undefined);
 
     // Custom white-to-blue color scale
     const customColorScale: [number, string][] = [
@@ -139,15 +86,13 @@ export function Heatmap(props: HeatmapProps) {
     const uniqueGroups = definedGroups;
     const plots: Partial<PlotData>[] = [];
     
-    // Create heatmaps for each group
     uniqueGroups.forEach((group, i) => {
-      const groupColor = getColorValue(colorColumn.dtype, colorValues, props.binData, groupValues, group);
+      const groupColor = getHeatmapColorValue(colorColumn.dtype, colorValues, props.binData, groupValues, group);
       const groupName = groupColumn.categories?.[group] || `Group ${group}`;
       const heatmapGrid = createHeatmapGrid(props.binData, groupColor);
       
       const groupCounts = heatmapGrid.z.map((row, yIndex) => 
         row.map((_, xIndex) => {
-          // Get cell count for this group in this bin
           return props.binData.binIndices[yIndex][xIndex].filter(idx => groupValues[idx] === group).length;
         })
       );
@@ -186,7 +131,6 @@ export function Heatmap(props: HeatmapProps) {
     return plots;
   });
   
-  // Create layout
   const plotLayout = createMemo(() => {
     // If no grouping, just return a simple layout
     if (!props.filterSettings.groupBy) {
