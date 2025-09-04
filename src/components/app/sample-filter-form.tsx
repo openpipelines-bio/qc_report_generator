@@ -71,7 +71,17 @@ function TableViewMode(props: SampleFilterFormProps) {
                   </svg>
                   <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
                     <div class="bg-black text-white text-xs rounded py-1 px-2 max-w-xs">
-                      Cells that passed pre-filtering (min. total counts = {props.data?.cell_rna_stats?.min_total_counts ?? "N/A"}, min. non-zero genes = {props.data?.cell_rna_stats?.min_num_nonzero_vars ?? "N/A"})
+                      {(() => {
+                        const minCounts = props.data?.cell_rna_stats?.min_total_counts ?? 0;
+                        const minGenes = props.data?.cell_rna_stats?.min_num_nonzero_vars ?? 0;
+                        
+                        // Check if meaningful filtering was applied (adjust thresholds as needed)
+                        if (minCounts <= 1 && minGenes <= 5) {
+                          return "No cells were filtered, this might affect report responsiveness.";
+                        } else {
+                          return `Cells that passed pre-filtering (min. total counts = ${minCounts}, min. non-zero genes = ${minGenes})`;
+                        }
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -230,8 +240,16 @@ export function SampleFilterForm(props: SampleFilterFormProps) {
           </div>
           <div class="ml-3">
             <h4 class="font-medium text-blue-800">
-              Data was pre-filtered with thresholds (min. total counts = {props.data?.cell_rna_stats?.min_total_counts ?? "N/A"}, min. non-zero genes = {props.data?.cell_rna_stats?.min_num_nonzero_vars ?? "N/A"}). 
-              The "Filtered Barcodes" column shows the number of cells that passed this initial filtering.
+              {(() => {
+                const minCounts = props.data?.cell_rna_stats?.min_total_counts ?? 0;
+                const minGenes = props.data?.cell_rna_stats?.min_num_nonzero_vars ?? 0;
+                
+                if (minCounts <= 1 && minGenes <= 5) {
+                  return "No meaningful pre-filtering was applied to this data, which might affect report responsiveness with large datasets.";
+                } else {
+                  return `Data was pre-filtered with thresholds (min. total counts = ${minCounts}, min. non-zero genes = ${minGenes}). The "Filtered Barcodes" column shows the number of cells that passed this initial filtering.`;
+                }
+              })()}
             </h4>
           </div>
         </div>

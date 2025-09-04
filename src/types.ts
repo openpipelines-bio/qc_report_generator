@@ -7,7 +7,6 @@ export type RawDataColumn = {
 
 export type RawDataCategory = {
   num_rows: number;
-  num_columns?: number;
   num_cols?: number;
   columns: RawDataColumn[];
   min_total_counts?: number;
