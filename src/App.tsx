@@ -6,12 +6,14 @@ import {
   Show,
   Switch,
   type Component,
+  Suspense,
 } from "solid-js";
 import { createStore, produce } from "solid-js/store";
 import { ReportStructure, FilterSettings, RawData, Settings } from "./types";
 import * as _ from "lodash";
 import { H1, H2, H3 } from "./components/heading";
 import { getData, getReportStructure, initializeDataLoader } from "./lib/get-data";
+import { progressiveDataAdapter } from "./lib/progressive-data-adapter";
 import { Histogram } from "./components/histogram";
 import { FilterSettingsForm } from "./components/app/filter-settings-form";
 import { DataSummaryTable } from "./components/app/data-summary-table";
@@ -25,6 +27,8 @@ import { createSettingsForm, SettingsFormProvider } from "./components/app/setti
 import { GlobalVisualizationSettings } from "./components/app/global-visualization-settings";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./components/ui/collapsible";
 import { Heatmap } from "~/components/heatmap";
+import { ProgressiveWrapper } from "./components/progressive-chart";
+import { ChartPlaceholder } from "./lib/progressive-loading";
 
 
 const App: Component = () => {
@@ -38,15 +42,28 @@ const App: Component = () => {
 
   // read data in memory
   createEffect(async () => {
-    console.log("initializing data loader");
+    console.log("🚀 Initializing progressive data loader");
+    const initStart = performance.now();
+    
     await initializeDataLoader();
     
-    console.log("reading qc categories");
+    // Start preloading critical data in parallel
+    const preloadPromise = progressiveDataAdapter.preloadCriticalData().catch(error => {
+      console.warn("⚠️ Critical data preloading failed:", error);
+    });
+    
+    console.log("📊 Reading QC categories");
     setReportStructure(await getReportStructure());
 
-    console.log("reading data");
+    console.log("📈 Reading main dataset");
     const data = await getData();
     setData(data);
+    
+    // Wait for preloading to complete (optional)
+    await preloadPromise;
+    
+    const initTime = performance.now() - initStart;
+    console.log(`✅ Progressive initialization completed in ${initTime.toFixed(2)}ms`);
     
     // make sure to set the initial selected samples
     const sampleIds = data.sample_summary_stats?.columns.find(col => col.name === "sample_id")?.categories || [];
@@ -310,7 +327,19 @@ const App: Component = () => {
   // page layout
   return (
     <SettingsFormProvider form={form}>
-      <div class="container mx-a space-y-2">
+      <Suspense fallback={
+        <div class="container mx-a space-y-2">
+          <H1>OpenPipelines Ingestion QC Report</H1>
+          <div class="flex items-center justify-center py-12">
+            <div class="text-center">
+              <div class="animate-spin text-4xl mb-4">⚙️</div>
+              <div class="text-lg font-medium text-gray-700">Loading QC Report...</div>
+              <div class="text-sm text-gray-500 mt-2">Initializing progressive data loader</div>
+            </div>
+          </div>
+        </div>
+      }>
+        <div class="container mx-a space-y-2">
         <H1>OpenPipelines Ingestion QC Report</H1>
         <SampleFilterForm sampleMetadata={sampleMetadata()} data={data()} />
         <GlobalVisualizationSettings getCategoricalColumns={getCategoricalColumns} />
@@ -436,52 +465,72 @@ const App: Component = () => {
                             <div class="flex flex-col space-y-2">
                               <Switch>
                                 <Match when={!data()}>
-                                  <div>Loading...</div>
+                                  <ChartPlaceholder title="Loading data..." height="400px" />
                                 </Match>
                                 <Match when={setting.type === "bar"}>
-                                  <BarPlot
-                                    data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
-                                    filterSettings={{
-                                      ...setting,
-                                      groupBy: currentFilterGroupBy()
-                                    }}
-                                  />
-                                </Match>
-                                <Match when={setting.type === "histogram" && 
-                                            (setting.visualizationType === "histogram" || !setting.visualizationType)}>
-                                  <Histogram
-                                    data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
-                                    filterSettings={{
-                                      ...setting,
-                                      groupBy: currentFilterGroupBy()
-                                    }}
-                                    additionalAxes={category.additionalAxes}
-                                  />
-                                </Match>
-                                {/* Spatial visualization with conditional binning */}
-                                <Match when={setting.type === "histogram" && setting.visualizationType === "spatial"}>
-                                  <Show when={binning().enabled && binIndices()}>
-                                    <Heatmap
+                                  <ProgressiveWrapper 
+                                    title={`${setting.label} Bar Chart`}
+                                    height="400px"
+                                  >
+                                    <BarPlot
                                       data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
-                                      binData={binIndices()!}
                                       filterSettings={{
                                         ...setting,
                                         groupBy: currentFilterGroupBy()
                                       }}
-                                      colorFieldName={setting.field}
                                     />
-                                  </Show>
-                                  
-                                  <Show when={!binning().enabled || !binIndices()}>
-                                    <ScatterPlot
-                                      data={(filters().enabled ? fullyFilteredData() : filteredData())?.cell_rna_stats!}
+                                  </ProgressiveWrapper>
+                                </Match>
+                                <Match when={setting.type === "histogram" && 
+                                            (setting.visualizationType === "histogram" || !setting.visualizationType)}>
+                                  <ProgressiveWrapper 
+                                    title={`${setting.label} Histogram`}
+                                    height="400px"
+                                  >
+                                    <Histogram
+                                      data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
                                       filterSettings={{
                                         ...setting,
                                         groupBy: currentFilterGroupBy()
                                       }}
                                       additionalAxes={category.additionalAxes}
-                                      colorFieldName={setting.field}
                                     />
+                                  </ProgressiveWrapper>
+                                </Match>
+                                {/* Spatial visualization with conditional binning */}
+                                <Match when={setting.type === "histogram" && setting.visualizationType === "spatial"}>
+                                  <Show when={binning().enabled && binIndices()}>
+                                    <ProgressiveWrapper 
+                                      title={`${setting.label} Spatial Heatmap`}
+                                      height="600px"
+                                    >
+                                      <Heatmap
+                                        data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
+                                        binData={binIndices()!}
+                                        filterSettings={{
+                                          ...setting,
+                                          groupBy: currentFilterGroupBy()
+                                        }}
+                                        colorFieldName={setting.field}
+                                      />
+                                    </ProgressiveWrapper>
+                                  </Show>
+                                  
+                                  <Show when={!binning().enabled || !binIndices()}>
+                                    <ProgressiveWrapper 
+                                      title={`${setting.label} Spatial Scatter Plot`}
+                                      height="600px"
+                                    >
+                                      <ScatterPlot
+                                        data={(filters().enabled ? fullyFilteredData() : filteredData())?.cell_rna_stats!}
+                                        filterSettings={{
+                                          ...setting,
+                                          groupBy: currentFilterGroupBy()
+                                        }}
+                                        additionalAxes={category.additionalAxes}
+                                        colorFieldName={setting.field}
+                                      />
+                                    </ProgressiveWrapper>
                                   </Show>
                                 </Match>
                               </Switch>
@@ -592,7 +641,8 @@ const App: Component = () => {
           </For>
         </div>
         <div class="h-64" />
-      </div>
+        </div>
+      </Suspense>
     </SettingsFormProvider>
   );
 };

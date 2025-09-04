@@ -31,14 +31,17 @@ async function getLegacyReportStructure(): Promise<ReportStructure> {
 }
 
 /**
- * Get data with automatic format detection
+ * Get data with automatic format detection and progressive loading
  * - Uses progressive loading if binary payload is available
  * - Falls back to legacy TypeScript modules otherwise
  */
 export async function getData(): Promise<RawData> {
   if (dataLoader.hasProgressiveData()) {
-    // Progressive loading not yet implemented for RawData
-    // For now, fall back to legacy format
+    // Initialize the data loader first
+    await dataLoader.init();
+    
+    // For now, still fall back to legacy format for RawData
+    // In the future, this could be implemented progressively
     return getLegacyData();
   } else {
     return getLegacyData();
@@ -46,12 +49,15 @@ export async function getData(): Promise<RawData> {
 }
 
 /**
- * Get report structure with automatic format detection
+ * Get report structure with automatic format detection and progressive loading
  */
 export async function getReportStructure(): Promise<ReportStructure> {
   if (dataLoader.hasProgressiveData()) {
-    // Progressive loading not yet implemented for ReportStructure
-    // For now, fall back to legacy format
+    // Initialize the data loader first
+    await dataLoader.init();
+    
+    // For now, still fall back to legacy format for ReportStructure
+    // In the future, this could be implemented progressively
     return getLegacyReportStructure();
   } else {
     return getLegacyReportStructure();
