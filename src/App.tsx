@@ -27,9 +27,9 @@ import { createSettingsForm, SettingsFormProvider } from "./components/app/setti
 import { GlobalVisualizationSettings } from "./components/app/global-visualization-settings";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./components/ui/collapsible";
 import { Heatmap } from "~/components/heatmap";
-import { ProgressiveWrapper } from "./components/progressive-chart";
 import { ChartPlaceholder } from "./lib/progressive-loading";
-
+import { DynamicChart } from "./components/dynamic-chart";
+import { ProgressiveWrapper, AggregatedChart, MultiSourceChart } from "./components/progressive-chart";
 
 const App: Component = () => {
   const [reportStructure, setReportStructure] = createSignal<ReportStructure>({categories: []});
@@ -468,69 +468,108 @@ const App: Component = () => {
                                   <ChartPlaceholder title="Loading data..." height="400px" />
                                 </Match>
                                 <Match when={setting.type === "bar"}>
-                                  <ProgressiveWrapper 
+                                  <DynamicChart
+                                    categoryKey={String(category.key)}
+                                    columnNames={[setting.field, ...(currentFilterGroupBy() ? [currentFilterGroupBy()!] : [])]}
+                                    filterSettings={setting}
+                                    groupBy={currentFilterGroupBy()}
                                     title={`${setting.label} Bar Chart`}
                                     height="400px"
                                   >
-                                    <BarPlot
-                                      data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
-                                      filterSettings={{
-                                        ...setting,
-                                        groupBy: currentFilterGroupBy()
-                                      }}
-                                    />
-                                  </ProgressiveWrapper>
-                                </Match>
-                                <Match when={setting.type === "histogram" && 
-                                            (setting.visualizationType === "histogram" || !setting.visualizationType)}>
-                                  <ProgressiveWrapper 
-                                    title={`${setting.label} Histogram`}
-                                    height="400px"
-                                  >
-                                    <Histogram
-                                      data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
-                                      filterSettings={{
-                                        ...setting,
-                                        groupBy: currentFilterGroupBy()
-                                      }}
-                                      additionalAxes={category.additionalAxes}
-                                    />
-                                  </ProgressiveWrapper>
-                                </Match>
-                                {/* Spatial visualization with conditional binning */}
-                                <Match when={setting.type === "histogram" && setting.visualizationType === "spatial"}>
-                                  <Show when={binning().enabled && binIndices()}>
-                                    <ProgressiveWrapper 
-                                      title={`${setting.label} Spatial Heatmap`}
-                                      height="600px"
-                                    >
-                                      <Heatmap
-                                        data={(filters().enabled ? fullyFilteredData() : filteredData())![category.key]}
-                                        binData={binIndices()!}
+                                    {(chartData, metadata) => (
+                                      <BarPlot
+                                        data={chartData}
                                         filterSettings={{
                                           ...setting,
                                           groupBy: currentFilterGroupBy()
                                         }}
-                                        colorFieldName={setting.field}
                                       />
-                                    </ProgressiveWrapper>
-                                  </Show>
-                                  
-                                  <Show when={!binning().enabled || !binIndices()}>
-                                    <ProgressiveWrapper 
-                                      title={`${setting.label} Spatial Scatter Plot`}
-                                      height="600px"
-                                    >
-                                      <ScatterPlot
-                                        data={(filters().enabled ? fullyFilteredData() : filteredData())?.cell_rna_stats!}
+                                    )}
+                                  </DynamicChart>
+                                </Match>
+                                <Match when={setting.type === "histogram" && 
+                                            (setting.visualizationType === "histogram" || !setting.visualizationType)}>
+                                  <DynamicChart
+                                    categoryKey={String(category.key)}
+                                    columnNames={[
+                                      setting.field, 
+                                      ...(setting.yField ? [setting.yField] : []),
+                                      ...(currentFilterGroupBy() ? [currentFilterGroupBy()!] : [])
+                                    ]}
+                                    filterSettings={setting}
+                                    groupBy={currentFilterGroupBy()}
+                                    title={`${setting.label} Histogram`}
+                                    height="400px"
+                                  >
+                                    {(chartData, metadata) => (
+                                      <Histogram
+                                        data={chartData}
                                         filterSettings={{
                                           ...setting,
                                           groupBy: currentFilterGroupBy()
                                         }}
                                         additionalAxes={category.additionalAxes}
-                                        colorFieldName={setting.field}
                                       />
-                                    </ProgressiveWrapper>
+                                    )}
+                                  </DynamicChart>
+                                </Match>
+                                {/* Spatial visualization with conditional binning */}
+                                <Match when={setting.type === "histogram" && setting.visualizationType === "spatial"}>
+                                  <Show when={binning().enabled && binIndices()}>
+                                    <DynamicChart
+                                      categoryKey={String(category.key)}
+                                      columnNames={[
+                                        setting.field,
+                                        "x_coord",
+                                        "y_coord",
+                                        ...(currentFilterGroupBy() ? [currentFilterGroupBy()!] : [])
+                                      ]}
+                                      filterSettings={setting}
+                                      groupBy={currentFilterGroupBy()}
+                                      title={`${setting.label} Spatial Heatmap`}
+                                      height="600px"
+                                    >
+                                      {(chartData, metadata) => (
+                                        <Heatmap
+                                          data={chartData}
+                                          binData={binIndices()!}
+                                          filterSettings={{
+                                            ...setting,
+                                            groupBy: currentFilterGroupBy()
+                                          }}
+                                          colorFieldName={setting.field}
+                                        />
+                                      )}
+                                    </DynamicChart>
+                                  </Show>
+                                  
+                                  <Show when={!binning().enabled || !binIndices()}>
+                                    <DynamicChart
+                                      categoryKey="cell_rna_stats"
+                                      columnNames={[
+                                        setting.field,
+                                        "x_coord",
+                                        "y_coord",
+                                        ...(setting.yField ? [setting.yField] : []),
+                                        ...(currentFilterGroupBy() ? [currentFilterGroupBy()!] : [])
+                                      ]}
+                                      filterSettings={setting}
+                                      groupBy={currentFilterGroupBy()}
+                                      title={`${setting.label} Spatial Scatter Plot`}
+                                      height="600px"
+                                    >
+                                      {(chartData, metadata) => (
+                                        <ScatterPlot
+                                          data={chartData}
+                                          filterSettings={{
+                                            ...setting,
+                                            groupBy: currentFilterGroupBy()
+                                          }}
+                                          additionalAxes={category.additionalAxes}
+                                          colorFieldName={setting.field}
+                                        />
+                                      )}
+                                    </DynamicChart>
                                   </Show>
                                 </Match>
                               </Switch>
@@ -640,6 +679,69 @@ const App: Component = () => {
             )}
           </For>
         </div>
+        
+        {/* 
+        ===========================================
+        CHART COMPONENT USAGE GUIDE
+        ===========================================
+        
+        Use DynamicChart when:
+        ✅ Loading specific columns from existing datasets
+        ✅ Working with raw columnar data
+        ✅ Memory optimization is important
+        ✅ Single data category
+        
+        Example:
+        <DynamicChart
+          categoryKey="cell_rna_stats"
+          columnNames={["total_counts", "pct_counts_mt"]}
+          filterSettings={setting}
+          title="RNA Quality Metrics"
+        >
+          {(optimizedData, metadata) => (
+            <ScatterPlot data={optimizedData} />
+          )}
+        </DynamicChart>
+        
+        Use ProgressiveWrapper when:
+        ✅ Pre-computed or aggregated data
+        ✅ Non-columnar data structures
+        ✅ Cross-category analysis
+        ✅ Custom data transformations
+        ✅ External APIs or computed datasets
+        
+        Example:
+        <ProgressiveWrapper
+          title="Sample Summary"
+          dataLoader={async () => computeSampleSummary(allData)}
+        >
+          {(summaryData) => (
+            <CustomSummaryChart data={summaryData} />
+          )}
+        </ProgressiveWrapper>
+        
+        Use AggregatedChart for pre-computed summaries:
+        <AggregatedChart
+          title="QC Metrics Overview"
+          aggregationFn={async () => calculateQcOverview(data)}
+        >
+          {(overview) => <OverviewDashboard data={overview} />}
+        </AggregatedChart>
+        
+        Use MultiSourceChart for combining datasets:
+        <MultiSourceChart
+          title="Cross-Category Analysis"
+          dataSources={[
+            () => getRnaData(),
+            () => getProteinData(),
+            () => getSpatialData()
+          ]}
+          combiner={(sources) => mergeSources(sources)}
+        >
+          {(mergedData) => <IntegratedAnalysis data={mergedData} />}
+        </MultiSourceChart>
+        */}
+        
         <div class="h-64" />
         </div>
       </Suspense>
