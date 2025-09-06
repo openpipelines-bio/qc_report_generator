@@ -9,6 +9,7 @@
     "build": "vite build",
     "serve": "vite preview",
     "compress_data": "node scripts/compress_data.js",
+    "test-format": "node scripts/test_format.js",
     "generate_data": "Rscript scripts/generate_data.R",
     "prettier": "prettier -w \"src/**/*.{js,ts,json,css,tsx,jsx}\" \"*.{js,ts,mjs}\"",
     "clean": "rm -rf dist .cache .temp node_modules src/data"
