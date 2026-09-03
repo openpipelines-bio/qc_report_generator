@@ -7,6 +7,7 @@
 ## Minor changes
 
 * Updated GitHub Action versions to latest (PR #30).
+* Updated locked dependency versions to resolve all open security advisories (PR #31).
 
 # siqc 0.2.1
 
